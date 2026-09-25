@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getSiteDomain } from '../../lib/site';
 
 function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
@@ -44,7 +45,7 @@ export const Logo: React.FC<LogoProps> = ({ className, size = 'md', showSubtitle
         </div>
         {showSubtitle && (
           <span className="text-[11px] font-medium text-slate-400 tracking-normal -mt-0.5">
-            linkvm.online
+            {getSiteDomain()}
           </span>
         )}
       </div>

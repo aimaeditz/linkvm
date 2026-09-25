@@ -17,6 +17,7 @@ import {
   Music2,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { getSiteDomain } from '../../lib/site';
 
 export interface HeroProps {
   onStartFree?: () => void;
@@ -333,7 +334,7 @@ export const Hero: React.FC<HeroProps> = ({ onStartFree, onSeeHowItWorks }) => {
 
                 <div className="mt-4 pt-3 border-t border-slate-100 w-full text-center">
                   <span className="text-[11px] font-mono font-medium text-indigo-600 bg-indigo-50/80 px-2.5 py-1 rounded-md">
-                    linkvm.online/yourhandle
+                    {getSiteDomain()}/yourhandle
                   </span>
                 </div>
               </motion.div>

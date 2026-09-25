@@ -78,21 +78,31 @@ In your repository on GitHub:
 
 ---
 
-## 🌐 Custom Domain (Later)
+## 🌐 Custom Domain Setup (`linkvm.online`)
 
-When you are ready to connect a custom domain (e.g., `https://linkvm.online`):
-1. Add a `CNAME` file at the repository root containing your domain (e.g. `linkvm.online`).
-2. Update `VITE_SITE_URL` in `.env` (or environment) to `https://linkvm.online`.
-3. In `app-source/vite.config.ts`, change `base` to `'/'`.
-4. Rebuild to root:
+LinkVM uses a single centralized environment variable `VITE_SITE_URL` for all referral links, vector QR codes, dynamic previews, and share URLs.
+
+When you purchase and connect your custom domain (`https://linkvm.online/`):
+
+1. **Update `.env`**:
+   Change the single variable:
+   ```env
+   VITE_SITE_URL=https://linkvm.online/
+   ```
+2. **Add `CNAME` file**:
+   Create a `CNAME` file at the repository root containing:
+   ```
+   linkvm.online
+   ```
+3. **Rebuild & push**:
    ```bash
    cd app-source && npm run build:root
+   git add . && git commit -m "Switch to custom domain linkvm.online" && git push origin main
    ```
-5. Commit and push:
-   ```bash
-   git add . && git commit -m "Configure custom domain" && git push origin main
-   ```
-6. In GitHub **Settings → Pages → Custom domain**, enter your domain name and save.
+4. **GitHub Settings**:
+   In your repository on GitHub: **Settings → Pages → Custom domain** → enter `linkvm.online` and save.
+
+> ✨ **Zero Extra Code Changes Needed**: You do NOT need to touch any other source file. The entire app (referral generation, QR codes, previews, meta tags, and URL patterns) automatically updates from `VITE_SITE_URL`.
 
 ---
 

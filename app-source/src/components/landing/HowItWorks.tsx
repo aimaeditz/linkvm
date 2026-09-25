@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { getSiteDomain } from '../../lib/site';
 
 export const HowItWorks: React.FC = () => {
   const shouldReduceMotion = useReducedMotion();
@@ -60,7 +61,7 @@ export const HowItWorks: React.FC = () => {
           <div className="px-4 py-2.5 rounded-full bg-white border border-slate-200 shadow-medium flex items-center gap-2.5">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
             <span className="text-xs font-mono font-semibold text-slate-800">
-              linkvm.online/you
+              {getSiteDomain()}/you
             </span>
           </div>
           <div className="absolute -left-6 -top-6 w-24 h-24 rounded-full border border-amber-100 pointer-events-none" />

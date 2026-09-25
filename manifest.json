@@ -1,14 +1,14 @@
 {
-  "name": "LinkVaultMe",
-  "short_name": "LinkVaultMe",
-  "description": "All your links. One premium page. 100% Free Forever.",
-  "start_url": "/",
+  "name": "LinkVM",
+  "short_name": "LinkVM",
+  "description": "All your links. One unified page. 100% Free Forever.",
+  "start_url": "/linkvm/",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#0F172A",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/linkvm/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

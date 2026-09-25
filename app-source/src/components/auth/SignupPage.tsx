@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Logo } from '../shared/Logo';
 import { StorageService } from '../../lib/storage';
+import { getSiteDomain } from '../../lib/site';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle, Sparkles, AtSign, Loader2 } from 'lucide-react';
@@ -74,7 +75,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
       const res = StorageService.checkUsernameAvailable(clean);
       if (res.available) {
         setUsernameStatus('available');
-        setUsernameFeedback(`linkvm.online/${clean} is available!`);
+        setUsernameFeedback(`${getSiteDomain()}/${clean} is available!`);
       } else {
         setUsernameStatus('unavailable');
         setUsernameFeedback(res.error || 'Username is unavailable');
@@ -325,7 +326,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
                 />
               </div>
               <p className="text-[10px] text-slate-400 mt-1">
-                Your live link will be <span className="font-mono font-bold text-slate-600">linkvm.online/{username || 'yourname'}</span>
+                Your live link will be <span className="font-mono font-bold text-slate-600">{getSiteDomain()}/{username || 'yourname'}</span>
               </p>
             </div>
 

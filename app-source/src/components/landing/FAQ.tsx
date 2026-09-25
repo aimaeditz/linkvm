@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { getSiteDomain } from '../../lib/site';
 
 export const FAQ: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -25,7 +26,7 @@ export const FAQ: React.FC = () => {
     },
     {
       q: 'Can I use my own domain or clean handle?',
-      a: 'Every user receives a clean, memorable URL in the format linkvm.online/yourname, with support for customizable display patterns.',
+      a: `Every user receives a clean, memorable URL in the format ${getSiteDomain()}/yourname, with support for customizable display patterns.`,
     },
     {
       q: 'How does auto-save work?',
