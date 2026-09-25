@@ -5,17 +5,30 @@ declare global {
   var prismaGlobal: any | undefined;
 }
 
-export const prisma =
-  globalThis.prismaGlobal ||
-  (() => {
-    try {
-      // Dynamic require or client initialization if @prisma/client is installed
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { PrismaClient } = require('@prisma/client');
-      const client = new PrismaClient();
-      if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = client;
-      return client;
-    } catch {
-      return null;
-    }
-  })();
+// Prisma client singleton with AI Studio in-memory fallback
+let prisma: any;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaClient } = require('@prisma/client');
+  prisma = (globalThis as any).prismaGlobal || new PrismaClient();
+  if (process.env.NODE_ENV !== 'production') {
+    (globalThis as any).prismaGlobal = prisma;
+  }
+} catch {
+  console.warn('[AI Studio] Prisma client not connected — using mock proxy');
+  const noOp = {
+    findMany: async () => [],
+    findFirst: async () => null,
+    findUnique: async () => null,
+    create: async (d: any) => d?.data ?? {},
+    update: async (d: any) => d?.data ?? {},
+    delete: async () => ({}),
+    count: async () => 0,
+    upsert: async (d: any) => d?.create ?? {},
+  };
+  prisma = new Proxy({}, { get: () => noOp });
+}
+
+export { prisma };
+

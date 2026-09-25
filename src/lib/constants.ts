@@ -4,7 +4,9 @@ export const BRAND = {
   name: 'LinkVM',
   tagline: 'All your links. One unified page.',
   mission: 'Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. Every feature unlocked. 100% Free Forever.',
-  domain: 'linkvm.online',
+  get domain() {
+    return getSiteUrl().replace(/^https?:\/\//, '');
+  },
   get appUrl() {
     return getSiteUrl();
   },

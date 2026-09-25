@@ -15,7 +15,7 @@ interface QRCodePageProps {
 export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
   const siteUrl = getSiteUrl();
   const publicUrl = buildPatternUrl(user?.sharePattern || '{username}', user?.username || 'user', siteUrl);
-  const displayUrl = buildPatternDisplayUrl(user?.sharePattern || '{username}', user?.username || 'user');
+  const displayUrl = buildPatternDisplayUrl(user?.sharePattern || '{username}', user?.username || 'user', siteUrl);
   
   // Referral config using short token-based format linkvm.online/r/{code}
   const referralCode = user?.referralCode || generateReferralCode(user?.username || 'user', user?.id || 'guest');

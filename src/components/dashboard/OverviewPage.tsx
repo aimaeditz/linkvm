@@ -46,7 +46,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
 
   const siteUrl = getSiteUrl();
   const fullPublicUrl = buildPatternUrl(user.sharePattern || '{username}', user.username, siteUrl);
-  const displayPublicUrl = buildPatternDisplayUrl(user.sharePattern || '{username}', user.username);
+  const displayPublicUrl = buildPatternDisplayUrl(user.sharePattern || '{username}', user.username, siteUrl);
 
   const recentEvents = [...analytics]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

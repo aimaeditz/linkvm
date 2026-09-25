@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { User, LinkItem, ThemeConfig } from '../../types';
 import { StorageService } from '../../lib/storage';
 import { validateUsername, isReservedUsername } from '../../lib/reserved-usernames';
+import { getSiteUrl } from '../../lib/site';
 import { CheckCircle2, AlertCircle, Loader2, AlertTriangle, Link as LinkIcon } from 'lucide-react';
 import { MediaManager } from './MediaManager';
 import { PatternList } from './PatternList';
@@ -87,6 +88,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     onChange({ sharePattern: pattern });
   };
 
+  const siteDomain = getSiteUrl().replace(/^https?:\/\//, '');
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
       {/* Left Column (60%): Media Manager & Main Profile Controls */}
@@ -106,7 +109,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               <p className="text-xs text-slate-500">Display name, unique username handle, bio, and avatar link</p>
             </div>
             <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
-              linkvm.online/{formData.username || 'creator'}
+              {siteDomain}/{formData.username || 'creator'}
             </div>
           </div>
 
@@ -156,9 +159,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                 )}
               </div>
 
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 font-bold select-none">
-                  linkvm.online/
+              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:border-slate-900 transition bg-white">
+                <span className="inline-flex items-center px-3.5 bg-slate-50 border-r border-slate-200 text-xs font-mono text-slate-500 font-semibold select-none shrink-0">
+                  {siteDomain}/
                 </span>
                 <input
                   type="text"
@@ -168,14 +171,14 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                   minLength={3}
                   maxLength={30}
                   placeholder="yourname"
-                  className={`w-full pl-32 pr-3.5 py-2.5 rounded-xl border text-sm font-mono focus:outline-hidden transition ${
+                  className={`w-full px-3.5 py-2.5 text-sm font-mono focus:outline-hidden transition ${
                     checkStatus === 'available'
-                      ? 'border-emerald-300 focus:border-emerald-500 bg-emerald-50/20'
+                      ? 'bg-emerald-50/20'
                       : checkStatus === 'taken' || checkStatus === 'invalid'
-                      ? 'border-rose-300 focus:border-rose-500 bg-rose-50/20'
+                      ? 'bg-rose-50/20'
                       : checkStatus === 'reserved'
-                      ? 'border-amber-300 focus:border-amber-500 bg-amber-50/20'
-                      : 'border-slate-200 focus:border-slate-900'
+                      ? 'bg-amber-50/20'
+                      : 'bg-transparent'
                   }`}
                 />
               </div>

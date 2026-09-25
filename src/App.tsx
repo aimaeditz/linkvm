@@ -80,8 +80,27 @@ export default function App() {
     return cleaned.trim();
   };
 
+  const getAppPath = (path: string): string => {
+    const base = ((import.meta as any)?.env?.BASE_URL || '/').replace(/\/$/, '');
+    const clean = path.startsWith('/') ? path : `/${path}`;
+    return base ? `${base}${clean}` : clean;
+  };
+
+  const getCleanRoutePath = (pathname = window.location.pathname): string => {
+    const base = ((import.meta as any)?.env?.BASE_URL || '/');
+    let path = pathname;
+    if (base !== '/' && path.startsWith(base)) {
+      path = path.slice(base.length);
+    } else if (path.startsWith('/linkvm/')) {
+      path = path.slice('/linkvm/'.length);
+    } else if (path === '/linkvm') {
+      path = '';
+    }
+    return path.replace(/^\//, '').trim();
+  };
+
   const resolveRouteAndLoad = (pathname = window.location.pathname) => {
-    const cleanPath = pathname.replace(/^\//, '').trim();
+    const cleanPath = getCleanRoutePath(pathname);
 
     // Check subdomain user first
     const hostname = window.location.hostname;
@@ -148,7 +167,7 @@ export default function App() {
       if (code) {
         localStorage.setItem('linkvm_ref_code', code);
         document.cookie = `linkvm_ref_code=${code}; path=/; max-age=86400`;
-        window.history.replaceState(null, '', `/signup?ref=${code}`);
+        window.history.replaceState(null, '', getAppPath(`/signup?ref=${code}`));
         setRoute('signup');
         return;
       }
@@ -157,7 +176,7 @@ export default function App() {
     // Check if the path is a dashboard nested path
     if (firstSegment === 'dashboard') {
       if (!StorageService.isSessionActive()) {
-        window.history.replaceState(null, '', '/login');
+        window.history.replaceState(null, '', getAppPath('/login'));
         setRoute('login');
         return;
       }
@@ -178,7 +197,7 @@ export default function App() {
     // Check other static routes
     if (firstSegment === 'login') {
       if (StorageService.isSessionActive()) {
-        window.history.replaceState(null, '', '/dashboard');
+        window.history.replaceState(null, '', getAppPath('/dashboard'));
         setRoute('dashboard');
         setDashboardTab('overview');
       } else {
@@ -189,7 +208,7 @@ export default function App() {
 
     if (firstSegment === 'signup') {
       if (StorageService.isSessionActive()) {
-        window.history.replaceState(null, '', '/dashboard');
+        window.history.replaceState(null, '', getAppPath('/dashboard'));
         setRoute('dashboard');
         setDashboardTab('overview');
       } else {
@@ -286,13 +305,13 @@ export default function App() {
   const handleLogout = () => {
     StorageService.logout();
     refreshAllState();
-    window.history.pushState(null, '', '/');
+    window.history.pushState(null, '', getAppPath('/'));
     resolveRouteAndLoad('/');
   };
 
   const handleLoginSuccess = () => {
     refreshAllState();
-    window.history.pushState(null, '', '/dashboard');
+    window.history.pushState(null, '', getAppPath('/dashboard'));
     resolveRouteAndLoad('/dashboard');
   };
 
@@ -314,8 +333,9 @@ export default function App() {
       newPath = `/dashboard/${tab}`;
     } else if (targetRoute.startsWith('#')) {
       // It's a hash anchor
-      if (window.location.pathname !== '/') {
-        window.history.pushState(null, '', `/${targetRoute}`);
+      const cleanCurrent = getCleanRoutePath(window.location.pathname);
+      if (cleanCurrent !== '') {
+        window.history.pushState(null, '', getAppPath(`/${targetRoute}`));
         resolveRouteAndLoad('/');
         setTimeout(() => {
           const el = document.querySelector(targetRoute);
@@ -332,8 +352,9 @@ export default function App() {
       newPath = `/${targetRoute}`;
     }
 
-    window.history.pushState(null, '', newPath);
-    resolveRouteAndLoad(newPath);
+    const appPath = getAppPath(newPath);
+    window.history.pushState(null, '', appPath);
+    resolveRouteAndLoad(appPath);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -394,11 +415,11 @@ export default function App() {
         theme={profileTheme || theme}
         socials={profileSocials || socials}
         onBackToDashboard={currentUser && currentUser.id === profileUser.id ? () => {
-          window.history.pushState(null, '', '/dashboard');
+          window.history.pushState(null, '', getAppPath('/dashboard'));
           resolveRouteAndLoad('/dashboard');
         } : undefined}
         onNavigateHome={() => {
-          window.history.pushState(null, '', '/');
+          window.history.pushState(null, '', getAppPath('/'));
           resolveRouteAndLoad('/');
         }}
       />
@@ -423,7 +444,7 @@ export default function App() {
           <div className="w-full grid grid-cols-2 gap-3 mt-6">
             <button
               onClick={() => {
-                window.history.pushState(null, '', '/');
+                window.history.pushState(null, '', getAppPath('/'));
                 resolveRouteAndLoad('/');
               }}
               className="w-full px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer"
@@ -432,7 +453,7 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                window.history.pushState(null, '', '/signup');
+                window.history.pushState(null, '', getAppPath('/signup'));
                 resolveRouteAndLoad('/signup');
               }}
               className="w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"

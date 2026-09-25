@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getSiteUrl } from './site';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -62,9 +63,9 @@ export function getInitials(name?: string | null): string {
 }
 
 export function buildPublicUrl(username?: string | null): string {
-  if (!username) return 'https://linkvm.online';
+  if (!username) return getSiteUrl();
   const clean = username.replace(/^@/, '').trim();
-  return `https://linkvm.online/${clean}`;
+  return `${getSiteUrl()}/${clean}`;
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {

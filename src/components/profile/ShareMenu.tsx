@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { X, Copy, Check, Share2, Send, Mail, Globe } from 'lucide-react';
 import { copyToClipboard } from '../../lib/utils';
 import { buildPatternUrl, buildPatternDisplayUrl } from '../../lib/username-patterns';
+import { getSiteUrl } from '../../lib/site';
 import { StorageService } from '../../lib/storage';
 
 interface ShareMenuProps {
@@ -32,8 +33,9 @@ export const ShareMenu: React.FC<ShareMenuProps> = ({
 
   if (!isOpen) return null;
 
-  const publicUrl = buildPatternUrl(selectedPattern, username);
-  const displayUrl = buildPatternDisplayUrl(selectedPattern, username);
+  const siteUrl = getSiteUrl();
+  const publicUrl = buildPatternUrl(selectedPattern, username, siteUrl);
+  const displayUrl = buildPatternDisplayUrl(selectedPattern, username, siteUrl);
   const displayName = name || username;
 
   const handleCopy = async () => {

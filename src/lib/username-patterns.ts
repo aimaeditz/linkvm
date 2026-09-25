@@ -1,4 +1,5 @@
-// Utility helpers for alternative URL patterns under linkvm.online
+// Utility helpers for alternative URL patterns under dynamic site URL
+import { getSiteUrl } from './site';
 
 export interface PatternItem {
   id: string;
@@ -77,20 +78,28 @@ export function normalizeUsername(raw: string): string {
   return cleaned.toLowerCase().replace(/[^a-z0-9_\-]/g, '');
 }
 
-export function buildPatternUrl(pattern: string | undefined, username: string, baseUrl = 'https://linkvm.online'): string {
+export function buildPatternUrl(pattern: string | undefined, username: string, baseUrl?: string): string {
   const cleanUsername = normalizeUsername(username) || 'username';
-  const domain = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const siteUrl = (baseUrl || getSiteUrl()).replace(/\/$/, '');
 
   if (pattern === '{username}.subdomain' || pattern === 'subdomain') {
-    return `https://${cleanUsername}.${domain}`;
+    try {
+      const urlObj = new URL(siteUrl);
+      if (!urlObj.pathname || urlObj.pathname === '/') {
+        return `${urlObj.protocol}//${cleanUsername}.${urlObj.host}`;
+      }
+    } catch {
+      // fallback
+    }
+    return `${siteUrl}/${cleanUsername}`;
   }
 
   const activePattern = pattern || '{username}';
   const formattedPath = activePattern.replace('{username}', cleanUsername);
-  return `https://${domain}/${formattedPath}`;
+  return `${siteUrl}/${formattedPath}`;
 }
 
-export function buildPatternDisplayUrl(pattern: string | undefined, username: string): string {
-  const full = buildPatternUrl(pattern, username);
+export function buildPatternDisplayUrl(pattern: string | undefined, username: string, baseUrl?: string): string {
+  const full = buildPatternUrl(pattern, username, baseUrl);
   return full.replace(/^https?:\/\//, '');
 }
