@@ -11,10 +11,10 @@ LinkVM is a blazing-fast, modern, and privacy-conscious link-in-bio platform bui
 
 - 🔗 **Unlimited Links**: Add, reorder, customize, and animate unlimited bio links with Lucide icons.
 - 🎨 **34 Free Theme Presets**: Handcrafted color schemes, typography, corner radiuses, and glass/solid/gradient buttons across 6 categories.
-- 🔒 **Username Uniqueness System**: Case-insensitive database enforcement, reserved word filtering, real-time debounced availability scanning.
+- 🔒 **Username Uniqueness System**: Case-insensitive enforcement, reserved word filtering, real-time debounced availability scanning.
 - 📊 **Real-Time Analytics**: Track views, clicks, CTR conversions, referrer sources, and device distribution with zero invasive third-party trackers.
 - 📱 **Vector QR Code Suite**: Generate customizable vector SVG and ultra-high-resolution PNG QR codes with embedded center marks.
-- ⚡ **Auto-Saving & Offline Resilient**: Instant debounced updates across all profile, theme, and link attributes.
+- ⚡ **Auto-Saving Data Service Layer**: Clean client-side persistence and abstraction (`AuthService` / `StorageService`) ready for seamless backend/Firebase swapping.
 - 💯 **100% Free Forever**: Zero payments, zero subscriptions, zero ads, zero hidden fees.
 
 ---

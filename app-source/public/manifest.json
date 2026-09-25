@@ -1,0 +1,17 @@
+{
+  "name": "LinkVM",
+  "short_name": "LinkVM",
+  "description": "All your links. One unified page. 100% Free Forever.",
+  "start_url": "/linkvm/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/linkvm/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
