@@ -1,0 +1,6 @@
+{
+  "name": "LinkVM",
+  "description": "All your links. One unified page. Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. 100% Free Forever.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

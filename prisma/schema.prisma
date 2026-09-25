@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  emailVerified  DateTime?
+  passwordHash   String?
+  name           String?
+  username       String        @unique
+  referralCode   String?       @unique
+  referredBy     String?
+  invitesSent    Int           @default(0)
+  invitesAccepted Int          @default(0)
+  bio            String?       @db.VarChar(160)
+  avatarUrl      String?
+  accentColor    String?
+  sharePattern   String?       @default("{username}")
+  notifications  Json?         @default("{\"emailOnView\":false,\"emailOnClick\":false,\"weeklySummary\":true,\"securityAlerts\":true,\"marketingUpdates\":false}")
+  privacy        Json?         @default("{\"hideBranding\":false,\"searchIndexing\":true,\"sensitiveContent\":false,\"hideViewCount\":false,\"anonymousAnalytics\":false}")
+  hasSharedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  links          Link[]
+  theme          Theme?
+  socials        Social?
+  analytics      Analytics[]
+
+  @@index([username])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Link {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @db.VarChar(80)
+  url         String
+  icon        String?
+  position    Int
+  visible     Boolean  @default(true)
+  clicks      Int      @default(0)
+  openInNew   Boolean  @default(true)
+  highlighted Boolean  @default(false)
+  animation   String?  @default("none")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics Analytics[]
+
+  @@index([userId, position])
+}
+
+model Theme {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  presetId        String   @default("pure-minimal")
+  category        String   @default("Minimal")
+  customizable    Boolean  @default(true)
+  bgType          String   @default("solid") // solid, gradient, mesh, pattern
+  bgColor         String   @default("#FFFFFF")
+  bgGradientFrom  String?  @default("#FFFFFF")
+  bgGradientTo    String?  @default("#F8FAFC")
+  textColor       String   @default("#0F172A")
+  headingColor    String   @default("#0F172A")
+  linkHoverColor  String   @default("#4F46E5")
+  buttonColor     String   @default("#FFFFFF")
+  buttonTextColor String   @default("#0F172A")
+  buttonBorderColor String @default("#E2E8F0")
+  buttonStyle     String   @default("bordered") // solid, bordered, soft, glass, gradient
+  buttonShape     String   @default("rounded-xl") // rounded-none, rounded-md, rounded-xl, rounded-full
+  buttonHover     String   @default("lift") // scale, lift, glow, bounce, none
+  cardStyle       String   @default("card-white")
+  fontFamily      String   @default("Inter")
+  headingFont     String   @default("Inter")
+  bodyFont        String   @default("Inter")
+  baseSize        Int      @default(16)
+  fontWeight      String   @default("medium")
+  letterSpacing   String   @default("normal")
+  stickerPack     String   @default("none") // none, geometric, minimal-dots, subtle-lines
+  socialIconSize  String   @default("medium")
+  socialIconShape String   @default("circle")
+  socialIconFill  String   @default("outline")
+  socialIconColor String   @default("#0F172A")
+  socialIconBg    String   @default("#FFFFFF")
+  socialIconBorder String  @default("#E2E8F0")
+  socialIconSpacing String @default("normal")
+  socialIconLayout String  @default("row")
+  socialIconAlign String   @default("center")
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Social {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  instagram  String?
+  youtube    String?
+  twitter    String?
+  linkedin   String?
+  github     String?
+  tiktok     String?
+  whatsapp   String?
+  telegram   String?
+  discord    String?
+  twitch     String?
+  spotify    String?
+  email      String?
+  website    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Analytics {
+  id        String   @id @default(cuid())
+  userId    String
+  linkId    String?
+  event     String   // view, click
+  device    String?  // Desktop, Mobile, Tablet
+  referrer  String?  // Direct, Twitter / X, Instagram, LinkedIn, GitHub, Google, Other
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  link Link? @relation(fields: [linkId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([linkId])
+}
