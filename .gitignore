@@ -1,4 +1,7 @@
 node_modules/
+node_modules
+app-source/node_modules/
+app-source/dist/
 build/
 dist/
 coverage/
