@@ -96,6 +96,16 @@ When you are ready to connect a custom domain (e.g., `https://linkvm.online`):
 
 ---
 
+## 🧭 Routing & Deploy Notes
+
+- **Repo Deploy Base**: Repo deploy uses base `/linkvm/` (matching `https://aimaeditz.github.io/linkvm/`).
+- **Paired Redirect Scripts**: `404.html` and `index.html` scripts use `pathSegmentsToKeep = 1` for repository subpath deployments.
+- **Custom Domain Switch**: When adding a custom domain: set `base: '/'` in `vite.config.ts`, set `pathSegmentsToKeep = 0` in both `404.html` and `index.html`, and update `VITE_SITE_URL`.
+- **Root Landing Guarantee**: The root URL `/` must always render the Landing page with zero exceptions, never falling through to username resolution or 404.
+- **Root 404 Prevention**: If a 404 ever appears at root: verify `base` in `vite.config.ts` and ensure `getNormalizedPath()` strips the base path cleanly before route evaluation.
+
+---
+
 ## 🔧 Troubleshooting
 
 ### 1. 404 Assets (Broken CSS / JavaScript files)

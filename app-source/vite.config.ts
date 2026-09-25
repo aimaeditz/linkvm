@@ -83,7 +83,7 @@ function preserveRootBuildPlugin(): Plugin {
 }
 
 export default defineConfig({
-  base: '/linkvm/',
+  base: process.env.VITE_BASE_PATH || '/linkvm/',
   plugins: [react(), tailwindcss(), preserveRootBuildPlugin()],
   resolve: {
     alias: {
