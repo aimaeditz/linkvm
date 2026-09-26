@@ -1,6 +1,6 @@
 import React from 'react';
 import { Logo } from '../shared/Logo';
-import { Github, Linkedin, Mail } from 'lucide-react';
+import { Instagram, Youtube, Globe } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 export interface FooterProps {
@@ -118,45 +118,59 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <h4 className="text-[11px] uppercase tracking-[0.15em] text-slate-400 font-medium">
               Connect
             </h4>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <a
-                href="https://x.com"
+                href="https://www.instagram.com/its_abid29/"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="X (formerly Twitter)"
-                className="text-slate-600 hover:text-slate-900 transition-colors"
+                aria-label="Instagram"
+                className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                <Instagram size={17} />
+              </a>
+
+              <a
+                href="https://www.youtube.com/@aimabideditz"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="YouTube"
+                className="text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                <Youtube size={17} />
+              </a>
+
+              <a
+                href="https://www.tiktok.com/@its_abid29"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="TikTok"
+                className="text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
                 </svg>
               </a>
 
               <a
-                href="https://github.com"
+                href="https://whatsapp.com/channel/0029Vb669jh11ulG8ttZ3K3s"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="GitHub"
-                className="text-slate-600 hover:text-slate-900 transition-colors"
+                aria-label="WhatsApp"
+                className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <Github size={17} />
+                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
               </a>
 
               <a
-                href="https://linkedin.com"
+                href="https://aimaeditz.blogspot.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="LinkedIn"
-                className="text-slate-600 hover:text-slate-900 transition-colors"
+                aria-label="Blog"
+                className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <Linkedin size={17} />
-              </a>
-
-              <a
-                href="mailto:aimaeditz.info@gmail.com"
-                aria-label="Email"
-                className="text-slate-600 hover:text-slate-900 transition-colors"
-              >
-                <Mail size={17} />
+                <Globe size={17} />
               </a>
             </div>
           </div>
@@ -167,7 +181,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="flex flex-col items-start">
               <Logo size="sm" showSubtitle={false} />
             </div>
-            <div className="flex flex-col text-right leading-tight">
+            <div className="flex flex-col text-right leading-tight space-y-1">
               <span className="text-xs text-slate-500">© 2026 LinkVM. All rights reserved.</span>
               <span className="text-xs text-slate-400">Created by AiMAEditz</span>
               <a
