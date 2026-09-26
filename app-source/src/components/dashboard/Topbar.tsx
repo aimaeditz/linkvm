@@ -163,16 +163,28 @@ export const Topbar: React.FC<TopbarProps> = ({
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs relative">
                 {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
               </div>
+              {user.isDemoUser && (
+                <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                  Demo
+                </span>
+              )}
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>
 
             {userMenuOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-4 py-2.5 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-900 truncate">{user.name || user.username}</p>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <p className="text-xs font-bold text-slate-900 truncate">{user.name || user.username}</p>
+                    {user.isDemoUser && (
+                      <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                        Demo Account
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-slate-500 truncate">@{user.username}</p>
                 </div>
 

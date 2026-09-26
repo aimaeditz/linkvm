@@ -59,10 +59,17 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
       <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/80 p-6 sm:p-8 shadow-xs">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold mb-3">
-              <Sparkles size={13} className="text-emerald-600" />
-              <span>{BRAND.planLabel}</span>
-              <span className="font-normal text-emerald-600">({BRAND.badge})</span>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold">
+                <Sparkles size={13} className="text-emerald-600" />
+                <span>{BRAND.planLabel}</span>
+                <span className="font-normal text-emerald-600">({BRAND.badge})</span>
+              </div>
+              {user.isDemoUser && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-extrabold">
+                  Demo Account
+                </span>
+              )}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">

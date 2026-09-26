@@ -376,8 +376,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">{user.email}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Google Authentication Active</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-slate-900">{user.email}</p>
+                      {user.isDemoUser && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                          Demo Account
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {user.isDemoUser ? 'Temporary Demo Session Active' : 'Google Authentication Active'}
+                    </p>
                   </div>
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">

@@ -23,6 +23,7 @@ export interface User {
   googleEmail?: string;
   googleName?: string;
   googlePicture?: string;
+  isDemoUser?: boolean;
   notifications?: {
     emailOnView?: boolean;
     emailOnClick?: boolean;

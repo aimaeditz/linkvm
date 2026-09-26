@@ -241,6 +241,76 @@ export class AuthService {
     return { user: newUser, isNew: true };
   }
 
+  static loginAsDemo(): { user: User; isNew: boolean } {
+    const demoEmail = 'demo@linkvm.local';
+    const demoSub = 'demo_user_sub_001';
+    let existing = findStoredUserByGoogleSub(demoSub);
+    if (!existing) {
+      existing = findStoredUserByEmail(demoEmail);
+    }
+    const users = getAllStoredUsers();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      const updatedUser: StoredUserAccount = {
+        ...existing,
+        isDemoUser: true,
+        name: existing.name || 'Demo Tester',
+        updatedAt: now,
+      };
+      const updatedList = users.map((u) => (u.id === existing.id ? updatedUser : u));
+      saveAllStoredUsers(updatedList);
+      this.setSession(existing.id, true);
+      return { user: updatedUser, isNew: false };
+    }
+
+    const userId = 'demo_user_id';
+    const username = 'demotester';
+    const newUser: StoredUserAccount = {
+      id: userId,
+      email: demoEmail,
+      name: 'Demo Tester',
+      username,
+      bio: 'Previewing LinkVM in Demo Mode.',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+      isDemoUser: true,
+      accentColor: null,
+      sharePattern: '{username}',
+      invitesSent: 0,
+      invitesAccepted: 0,
+      referralCode: 'demo-1234',
+      notifications: {
+        weeklySummary: true,
+        securityAlerts: true,
+      },
+      privacy: {
+        searchIndexing: true,
+        anonymousAnalytics: false,
+      },
+      hasSharedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    users.push(newUser);
+    saveAllStoredUsers(users);
+
+    const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
+
+    if (isBrowser()) {
+      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
+      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
+      localStorage.setItem(
+        `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
+        JSON.stringify({ id: generateId(), userId })
+      );
+      localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
+    }
+
+    this.setSession(userId, true);
+    return { user: newUser, isNew: true };
+  }
+
   static async updateProfile(partial: Partial<User>): Promise<{ user?: User; error?: string }> {
     const userId = this.getSessionUserId();
     if (!userId) return { error: 'Unauthorized' };
@@ -363,6 +433,10 @@ export class StorageService {
     picture?: string;
   }): { user: User; isNew: boolean } {
     return AuthService.loginWithGoogle(profile);
+  }
+
+  static loginAsDemo(): { user: User; isNew: boolean } {
+    return AuthService.loginAsDemo();
   }
 
   static getCurrentUser(): User | null {

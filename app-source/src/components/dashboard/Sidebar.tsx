@@ -225,7 +225,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-800 truncate">{user.name || user.username}</p>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate">{user.name || user.username}</p>
+                {user.isDemoUser && (
+                  <span className="shrink-0 px-1 py-0.2 text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200 rounded">
+                    Demo Account
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-slate-400 truncate">@{user.username}</p>
             </div>
           </div>

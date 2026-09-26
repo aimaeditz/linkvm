@@ -177,6 +177,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
     }
   };
 
+  const handleDemoModeLogin = () => {
+    setLoading(true);
+    try {
+      AuthService.loginAsDemo();
+      localStorage.setItem('linkvm_last_signin', Date.now().toString());
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen w-full overflow-y-auto flex items-center justify-center px-4 py-12 bg-white font-sans selection:bg-indigo-500 selection:text-white">
       <AuthBackdrop />
@@ -211,14 +229,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
           )}
 
           {!googleClientId ? (
-            <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex flex-col gap-2 mb-6">
-              <div className="flex items-center gap-2 font-bold text-amber-900">
-                <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                <span>Configuration Required</span>
+            <div className="w-full flex flex-col items-center gap-4 mb-6">
+              <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex flex-col gap-2">
+                <div className="flex items-center gap-2 font-bold text-amber-900">
+                  <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                  <span>Configuration Required</span>
+                </div>
+                <p className="text-amber-700 leading-relaxed">
+                  Google Sign-In is not configured yet. Add <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-[11px]">VITE_GOOGLE_CLIENT_ID</code> to enable login.
+                </p>
               </div>
-              <p className="text-amber-700 leading-relaxed">
-                Google Sign-In is not configured yet. Add <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-[11px]">VITE_GOOGLE_CLIENT_ID</code> to enable login.
-              </p>
+
+              <div className="w-full flex flex-col items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleDemoModeLogin}
+                  className="w-full max-w-[320px] flex items-center justify-center gap-2 h-11 px-4 rounded-xl border border-slate-300 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-soft transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <span>Continue in Demo Mode (temporary)</span>
+                </button>
+                <p className="text-[11px] text-slate-500 text-center max-w-[320px] leading-tight">
+                  For local preview only. Real Google Sign-In will replace this once configured.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="w-full flex flex-col items-center justify-center gap-3 my-4">
