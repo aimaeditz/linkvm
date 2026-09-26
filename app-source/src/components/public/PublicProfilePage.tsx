@@ -32,19 +32,12 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
   // Record profile view event on mount
   useEffect(() => {
     if (user.id) {
-      StorageService.recordEvent({
-        userId: user.id,
-        event: 'view',
-      });
+      StorageService.trackEvent(user.id, 'view');
     }
   }, [user.id]);
 
   const handleLinkClick = (link: LinkItem) => {
-    StorageService.recordEvent({
-      userId: user.id,
-      linkId: link.id,
-      event: 'click',
-    });
+    StorageService.trackEvent(user.id, 'click', { linkId: link.id });
   };
 
   const getButtonShapeClass = (shape: string) => {

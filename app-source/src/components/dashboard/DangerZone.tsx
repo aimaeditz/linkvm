@@ -11,9 +11,8 @@ export const DangerZone: React.FC<DangerZoneProps> = ({ onLogout }) => {
   const [confirmInput, setConfirmInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleExport = () => {
-    const jsonString = StorageService.exportUserData();
-    const blob = new Blob([jsonString], { type: 'application/json' });
+  const handleExport = async () => {
+    const blob = await StorageService.exportData();
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -23,13 +22,13 @@ export const DangerZone: React.FC<DangerZoneProps> = ({ onLogout }) => {
     document.body.removeChild(link);
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (confirmInput.trim() !== 'DELETE') {
       setError('You must type "DELETE" exactly to confirm.');
       return;
     }
 
-    StorageService.deleteAccount();
+    await StorageService.deleteAccount();
     onLogout();
   };
 

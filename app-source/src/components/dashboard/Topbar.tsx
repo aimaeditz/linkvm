@@ -166,11 +166,6 @@ export const Topbar: React.FC<TopbarProps> = ({
               <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs relative">
                 {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
               </div>
-              {user.isDemoUser && (
-                <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
-                  Demo
-                </span>
-              )}
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>
 
@@ -179,11 +174,6 @@ export const Topbar: React.FC<TopbarProps> = ({
                 <div className="px-4 py-2.5 border-b border-slate-100">
                   <div className="flex items-center justify-between gap-1.5">
                     <p className="text-xs font-bold text-slate-900 truncate">{user.name || user.username}</p>
-                    {user.isDemoUser && (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
-                        Demo Account
-                      </span>
-                    )}
                   </div>
                   <p className="text-[11px] text-slate-500 truncate">@{user.username}</p>
                 </div>

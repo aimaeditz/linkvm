@@ -9,398 +9,438 @@ import {
 import { slugify } from './utils';
 import { THEME_PRESETS, presetToConfig } from './themes';
 import { validateUsername } from './reserved-usernames';
+import {
+  auth,
+  db,
+  googleProvider,
+  handleFirestoreError,
+  OperationType,
+} from './firebase';
+import {
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+  deleteUser,
+} from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
 
 export interface StoredUserAccount extends User {}
 
-const STORAGE_KEYS = {
-  SESSION_USER_ID: 'linkvm_session_user_id',
-  SESSION_EXPIRES_AT: 'linkvm_session_expires_at',
-  REGISTERED_USERS: 'linkvm_users_table',
-  USER_LINKS_PREFIX: 'linkvm_links_user_',
-  USER_THEME_PREFIX: 'linkvm_theme_user_',
-  USER_SOCIALS_PREFIX: 'linkvm_socials_user_',
-  USER_ANALYTICS_PREFIX: 'linkvm_analytics_user_',
-};
+// In-memory cache for synchronous render compatibility
+let cachedCurrentUser: User | null = null;
+let cachedLinks: LinkItem[] = [];
+let cachedTheme: ThemeConfig | null = null;
+let cachedSocials: SocialLinks | null = null;
+let cachedAnalytics: AnalyticsEvent[] = [];
+
+type StateChangeListener = () => void;
+const listeners: Set<StateChangeListener> = new Set();
+
+export function subscribeToStore(listener: StateChangeListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notifyListeners() {
+  listeners.forEach((l) => l());
+}
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
 }
 
-function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
-}
-
-function getAllStoredUsers(): StoredUserAccount[] {
-  if (!isBrowser()) return [];
-  const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS);
-  if (!data) return [];
-  try {
-    return JSON.parse(data) as StoredUserAccount[];
-  } catch {
-    return [];
+// Global Auth State Listener
+onAuthStateChanged(auth, async (firebaseUser) => {
+  if (firebaseUser) {
+    try {
+      await syncUserFromFirebase(firebaseUser);
+    } catch (err) {
+      console.error('Error syncing user on auth change:', err);
+    }
+  } else {
+    cachedCurrentUser = null;
+    cachedLinks = [];
+    cachedTheme = null;
+    cachedSocials = null;
+    cachedAnalytics = [];
+    notifyListeners();
   }
+});
+
+export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<User> {
+  const uid = firebaseUser.uid;
+  const userRef = doc(db, 'users', uid);
+  const now = new Date().toISOString();
+
+  let userDocSnap;
+  try {
+    userDocSnap = await getDoc(userRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `users/${uid}`);
+    throw err;
+  }
+
+  let userData: User;
+
+  if (userDocSnap.exists()) {
+    const existing = userDocSnap.data() as User;
+    userData = {
+      ...existing,
+      id: uid,
+      email: firebaseUser.email || existing.email || '',
+      displayName: firebaseUser.displayName || existing.displayName || '',
+      photoURL: firebaseUser.photoURL || existing.photoURL || '',
+      avatarUrl: existing.avatarUrl || firebaseUser.photoURL || '',
+      name: existing.name || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator'),
+      googleEmail: firebaseUser.email || '',
+      googleName: firebaseUser.displayName || '',
+      googlePicture: firebaseUser.photoURL || '',
+      googleSub: firebaseUser.uid,
+      updatedAt: now,
+    };
+    try {
+      await updateDoc(userRef, {
+        email: userData.email,
+        displayName: userData.displayName,
+        photoURL: userData.photoURL,
+        avatarUrl: userData.avatarUrl,
+        name: userData.name,
+        googleEmail: userData.googleEmail,
+        googleName: userData.googleName,
+        googlePicture: userData.googlePicture,
+        googleSub: userData.googleSub,
+        updatedAt: now,
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+    }
+  } else {
+    const rawUsername = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'creator';
+    let username = slugify(rawUsername);
+    if (!username || username.length < 3) username = `user_${generateId().slice(0, 5)}`;
+
+    const avail = await checkUsernameAvailableInFirestore(username);
+    if (!avail) {
+      username = `${username}${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    userData = {
+      id: uid,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator'),
+      displayName: firebaseUser.displayName || '',
+      photoURL: firebaseUser.photoURL || '',
+      avatarUrl: firebaseUser.photoURL || '',
+      username,
+      bio: 'All my links in one place. Welcome to my page!',
+      sharePattern: '{username}',
+      invitesSent: 0,
+      invitesAccepted: 0,
+      referralCode: `${username}-${uid.slice(0, 4)}`,
+      googleSub: firebaseUser.uid,
+      googleEmail: firebaseUser.email || '',
+      googleName: firebaseUser.displayName || '',
+      googlePicture: firebaseUser.photoURL || '',
+      notifications: {
+        weeklySummary: true,
+        securityAlerts: true,
+      },
+      privacy: {
+        searchIndexing: true,
+        anonymousAnalytics: false,
+      },
+      hasSharedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      await setDoc(userRef, userData);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}`);
+    }
+
+    // Default theme & socials
+    const defaultTheme = presetToConfig(THEME_PRESETS[0], uid);
+    const themeRef = doc(db, 'users', uid, 'theme', 'default');
+    try {
+      await setDoc(themeRef, defaultTheme);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/theme/default`);
+    }
+
+    const defaultSocials: SocialLinks = { id: 'default', userId: uid };
+    const socialsRef = doc(db, 'users', uid, 'socials', 'default');
+    try {
+      await setDoc(socialsRef, defaultSocials);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/socials/default`);
+    }
+  }
+
+  cachedCurrentUser = userData;
+
+  // Load user links
+  try {
+    const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
+    const loadedLinks: LinkItem[] = [];
+    linksSnap.forEach((docSnap) => {
+      loadedLinks.push(docSnap.data() as LinkItem);
+    });
+    cachedLinks = loadedLinks.sort((a, b) => a.position - b.position);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, `users/${uid}/links`);
+  }
+
+  // Load user theme
+  try {
+    const themeSnap = await getDoc(doc(db, 'users', uid, 'theme', 'default'));
+    if (themeSnap.exists()) {
+      cachedTheme = themeSnap.data() as ThemeConfig;
+    } else {
+      cachedTheme = presetToConfig(THEME_PRESETS[0], uid);
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `users/${uid}/theme/default`);
+  }
+
+  // Load user socials
+  try {
+    const socialsSnap = await getDoc(doc(db, 'users', uid, 'socials', 'default'));
+    if (socialsSnap.exists()) {
+      cachedSocials = socialsSnap.data() as SocialLinks;
+    } else {
+      cachedSocials = { id: 'default', userId: uid };
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `users/${uid}/socials/default`);
+  }
+
+  // Load analytics
+  try {
+    const analyticsSnap = await getDocs(collection(db, 'users', uid, 'analytics'));
+    const loadedEvents: AnalyticsEvent[] = [];
+    analyticsSnap.forEach((docSnap) => {
+      loadedEvents.push(docSnap.data() as AnalyticsEvent);
+    });
+    cachedAnalytics = loadedEvents;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, `users/${uid}/analytics`);
+  }
+
+  notifyListeners();
+  return userData;
 }
 
-function saveAllStoredUsers(users: StoredUserAccount[]): void {
-  if (!isBrowser()) return;
-  localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(users));
-}
+async function checkUsernameAvailableInFirestore(username: string): Promise<boolean> {
+  const clean = slugify(username);
+  if (!clean || clean.length < 3 || clean.length > 30) return false;
+  const val = validateUsername(clean);
+  if (!val.valid) return false;
 
-function findStoredUserByEmail(email: string): StoredUserAccount | null {
-  const users = getAllStoredUsers();
-  return users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) || null;
-}
-
-function findStoredUserByGoogleSub(sub: string): StoredUserAccount | null {
-  const users = getAllStoredUsers();
-  return users.find((u) => u.googleSub === sub) || null;
-}
-
-function findStoredUserByUsername(username: string): StoredUserAccount | null {
-  const users = getAllStoredUsers();
-  const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
-  return users.find((u) => u.username.toLowerCase() === clean) || null;
-}
-
-function findStoredUserById(id: string): StoredUserAccount | null {
-  const users = getAllStoredUsers();
-  return users.find((u) => u.id === id) || null;
+  try {
+    const q = query(collection(db, 'users'), where('username', '==', clean));
+    const snap = await getDocs(q);
+    return snap.empty;
+  } catch {
+    return false;
+  }
 }
 
 export class AuthService {
   static getSessionUserId(): string | null {
-    if (!isBrowser()) return null;
-    const userId = localStorage.getItem(STORAGE_KEYS.SESSION_USER_ID);
-    const expiresAt = localStorage.getItem(STORAGE_KEYS.SESSION_EXPIRES_AT);
-
-    if (!userId || !expiresAt) return null;
-
-    if (Date.now() > Number(expiresAt)) {
-      this.logoutSync();
-      return null;
-    }
-    return userId;
-  }
-
-  static setSession(userId: string, rememberMe = true): void {
-    if (!isBrowser()) return;
-    const durationMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    localStorage.setItem(STORAGE_KEYS.SESSION_USER_ID, userId);
-    localStorage.setItem(STORAGE_KEYS.SESSION_EXPIRES_AT, String(Date.now() + durationMs));
+    return auth.currentUser ? auth.currentUser.uid : cachedCurrentUser?.id || null;
   }
 
   static isSessionActive(): boolean {
-    return Boolean(this.getSessionUserId());
+    return Boolean(auth.currentUser || cachedCurrentUser);
   }
 
-  static logoutSync(): void {
-    if (!isBrowser()) return;
-    localStorage.removeItem(STORAGE_KEYS.SESSION_USER_ID);
-    localStorage.removeItem(STORAGE_KEYS.SESSION_EXPIRES_AT);
+  static async loginWithGoogleFirebase(): Promise<User> {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = await syncUserFromFirebase(result.user);
+    return user;
   }
 
   static async logout(): Promise<void> {
-    this.logoutSync();
+    await signOut(auth);
+    cachedCurrentUser = null;
+    cachedLinks = [];
+    cachedTheme = null;
+    cachedSocials = null;
+    cachedAnalytics = [];
+    notifyListeners();
   }
 
   static getCurrentUserSync(): User | null {
-    const userId = this.getSessionUserId();
-    if (!userId) return null;
-    return findStoredUserById(userId);
+    return cachedCurrentUser;
   }
 
   static async getCurrentUser(): Promise<User | null> {
-    return this.getCurrentUserSync();
+    if (auth.currentUser) {
+      if (!cachedCurrentUser || cachedCurrentUser.id !== auth.currentUser.uid) {
+        await syncUserFromFirebase(auth.currentUser);
+      }
+    }
+    return cachedCurrentUser;
   }
 
   static async checkUsernameAvailable(username: string): Promise<boolean> {
-    const clean = slugify(username);
-    if (!clean || clean.length < 3 || clean.length > 30) return false;
-    const val = validateUsername(clean);
-    if (!val.valid) return false;
-    const existing = findStoredUserByUsername(clean);
-    return !existing;
+    return checkUsernameAvailableInFirestore(username);
   }
 
   static generateUniqueUsername(email: string): string {
     const localPart = email.split('@')[0] || 'creator';
     let base = slugify(localPart).slice(0, 16);
     if (base.length < 3) base = `user_${base}`;
-
-    if (!findStoredUserByUsername(base) && validateUsername(base).valid) {
-      return base;
-    }
-
-    for (let i = 0; i < 50; i++) {
-      const candidate = `${base}${Math.floor(1000 + Math.random() * 9000)}`;
-      if (!findStoredUserByUsername(candidate) && validateUsername(candidate).valid) {
-        return candidate;
-      }
-    }
-    return `${base}${Date.now().toString().slice(-4)}`;
-  }
-
-  static loginWithGoogle(profile: {
-    sub: string;
-    email: string;
-    name?: string;
-    picture?: string;
-  }): { user: User; isNew: boolean } {
-    const cleanEmail = profile.email.trim().toLowerCase();
-    const existingBySub = profile.sub ? findStoredUserByGoogleSub(profile.sub) : null;
-    const existingByEmail = findStoredUserByEmail(cleanEmail);
-    const existing = existingBySub || existingByEmail;
-
-    const users = getAllStoredUsers();
-
-    if (existing) {
-      const updatedUser: StoredUserAccount = {
-        ...existing,
-        googleSub: profile.sub || existing.googleSub,
-        googleEmail: cleanEmail,
-        googleName: profile.name || existing.googleName || existing.name || '',
-        googlePicture: profile.picture || existing.googlePicture || existing.avatarUrl || '',
-        avatarUrl: existing.avatarUrl || profile.picture || '',
-        name: existing.name || profile.name || cleanEmail.split('@')[0],
-        updatedAt: new Date().toISOString(),
-      };
-
-      const updatedList = users.map((u) => (u.id === existing.id ? updatedUser : u));
-      saveAllStoredUsers(updatedList);
-      this.setSession(existing.id, true);
-      return { user: updatedUser, isNew: false };
-    }
-
-    const userId = generateId();
-    const username = this.generateUniqueUsername(cleanEmail);
-    const now = new Date().toISOString();
-
-    const newUser: StoredUserAccount = {
-      id: userId,
-      email: cleanEmail,
-      name: profile.name || cleanEmail.split('@')[0] || 'Creator',
-      username,
-      bio: 'All my links in one place. Welcome to my page!',
-      avatarUrl: profile.picture || '',
-      accentColor: null,
-      sharePattern: '{username}',
-      invitesSent: 0,
-      invitesAccepted: 0,
-      referralCode: `${username}-${userId.slice(0, 4)}`,
-      googleSub: profile.sub,
-      googleEmail: cleanEmail,
-      googleName: profile.name || '',
-      googlePicture: profile.picture || '',
-      notifications: {
-        weeklySummary: true,
-        securityAlerts: true,
-      },
-      privacy: {
-        searchIndexing: true,
-        anonymousAnalytics: false,
-      },
-      hasSharedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    if (isBrowser()) {
-      const refCode = localStorage.getItem('linkvm_ref_code');
-      if (refCode) {
-        const cleanRef = refCode.trim().toLowerCase();
-        const referrerIndex = users.findIndex(
-          (u) =>
-            u.username.toLowerCase() === cleanRef ||
-            u.referralCode?.toLowerCase() === cleanRef ||
-            u.username.toLowerCase() === cleanRef.split('-')[0]
-        );
-        if (referrerIndex !== -1) {
-          users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
-          users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
-        }
-        localStorage.removeItem('linkvm_ref_code');
-      }
-    }
-
-    users.push(newUser);
-    saveAllStoredUsers(users);
-
-    const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
-
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-      localStorage.setItem(
-        `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
-        JSON.stringify({ id: generateId(), userId })
-      );
-      localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
-    }
-
-    this.setSession(userId, true);
-    return { user: newUser, isNew: true };
-  }
-
-  static loginAsDemo(): { user: User; isNew: boolean } {
-    const demoEmail = 'demo@linkvm.local';
-    const demoSub = 'demo_user_sub_001';
-    let existing = findStoredUserByGoogleSub(demoSub);
-    if (!existing) {
-      existing = findStoredUserByEmail(demoEmail);
-    }
-    const users = getAllStoredUsers();
-    const now = new Date().toISOString();
-
-    if (existing) {
-      const updatedUser: StoredUserAccount = {
-        ...existing,
-        isDemoUser: true,
-        name: existing.name || 'Demo Tester',
-        updatedAt: now,
-      };
-      const updatedList = users.map((u) => (u.id === existing.id ? updatedUser : u));
-      saveAllStoredUsers(updatedList);
-      this.setSession(existing.id, true);
-      return { user: updatedUser, isNew: false };
-    }
-
-    const userId = 'demo_user_id';
-    const username = 'demotester';
-    const newUser: StoredUserAccount = {
-      id: userId,
-      email: demoEmail,
-      name: 'Demo Tester',
-      username,
-      bio: 'Previewing LinkVM in Demo Mode.',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-      isDemoUser: true,
-      accentColor: null,
-      sharePattern: '{username}',
-      invitesSent: 0,
-      invitesAccepted: 0,
-      referralCode: 'demo-1234',
-      notifications: {
-        weeklySummary: true,
-        securityAlerts: true,
-      },
-      privacy: {
-        searchIndexing: true,
-        anonymousAnalytics: false,
-      },
-      hasSharedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    users.push(newUser);
-    saveAllStoredUsers(users);
-
-    const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
-
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-      localStorage.setItem(
-        `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
-        JSON.stringify({ id: generateId(), userId })
-      );
-      localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
-    }
-
-    this.setSession(userId, true);
-    return { user: newUser, isNew: true };
+    return base;
   }
 
   static async updateProfile(partial: Partial<User>): Promise<{ user?: User; error?: string }> {
-    const userId = this.getSessionUserId();
-    if (!userId) return { error: 'Unauthorized' };
+    const current = auth.currentUser;
+    if (!current) return { error: 'Unauthorized' };
 
+    const uid = current.uid;
     if (partial.username) {
       const cleanUsername = slugify(partial.username);
       const val = validateUsername(cleanUsername);
       if (!val.valid) {
         return { error: val.error || 'Invalid username.' };
       }
-      const existing = findStoredUserByUsername(cleanUsername);
-      if (existing && existing.id !== userId) {
-        return { error: 'This username is already taken.' };
+      if (cleanUsername !== cachedCurrentUser?.username) {
+        const isAvail = await checkUsernameAvailableInFirestore(cleanUsername);
+        if (!isAvail) {
+          return { error: 'This username is already taken.' };
+        }
       }
       partial.username = cleanUsername;
     }
 
-    const users = getAllStoredUsers();
-    let updatedUser: User | null = null;
-    const updatedList = users.map((u) => {
-      if (u.id === userId) {
-        const merged: StoredUserAccount = {
-          ...u,
-          ...partial,
-          updatedAt: new Date().toISOString(),
-        };
-        updatedUser = merged;
-        return merged;
-      }
-      return u;
-    });
+    const now = new Date().toISOString();
+    const updatedUser: User = {
+      ...(cachedCurrentUser || {
+        id: uid,
+        email: current.email || '',
+        name: current.displayName || 'Creator',
+        username: 'user',
+        createdAt: now,
+        updatedAt: now,
+      }),
+      ...partial,
+      updatedAt: now,
+    };
 
-    if (updatedUser) {
-      saveAllStoredUsers(updatedList);
+    try {
+      await setDoc(doc(db, 'users', uid), updatedUser, { merge: true });
+      cachedCurrentUser = updatedUser;
+      notifyListeners();
       return { user: updatedUser };
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+      return { error: 'Failed to update profile in database' };
     }
-    return { error: 'User not found' };
   }
 
   static async deleteAccount(): Promise<void> {
-    const userId = this.getSessionUserId();
-    if (!userId || !isBrowser()) return;
+    const current = auth.currentUser;
+    if (!current) return;
+    const uid = current.uid;
 
-    localStorage.removeItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`);
+    try {
+      const batch = writeBatch(db);
 
-    const remainingUsers = getAllStoredUsers().filter((u) => u.id !== userId);
-    saveAllStoredUsers(remainingUsers);
+      // Links
+      const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
+      linksSnap.forEach((d) => batch.delete(d.ref));
 
-    this.logoutSync();
+      // Theme
+      batch.delete(doc(db, 'users', uid, 'theme', 'default'));
+
+      // Socials
+      batch.delete(doc(db, 'users', uid, 'socials', 'default'));
+
+      // Analytics
+      const analyticsSnap = await getDocs(collection(db, 'users', uid, 'analytics'));
+      analyticsSnap.forEach((d) => batch.delete(d.ref));
+
+      // User document
+      batch.delete(doc(db, 'users', uid));
+
+      await batch.commit();
+      await deleteUser(current);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${uid}`);
+    }
+
+    cachedCurrentUser = null;
+    cachedLinks = [];
+    cachedTheme = null;
+    cachedSocials = null;
+    cachedAnalytics = [];
+    notifyListeners();
   }
 }
 
 export class StorageService {
-  static isBrowser(): boolean {
-    return isBrowser();
+  static isSessionActive(): boolean {
+    return AuthService.isSessionActive();
   }
 
   static getSessionUserId(): string | null {
     return AuthService.getSessionUserId();
   }
 
-  static setSession(userId: string, rememberMe = true): void {
-    AuthService.setSession(userId, rememberMe);
+  static async logout(): Promise<void> {
+    await AuthService.logout();
   }
 
-  static isSessionActive(): boolean {
-    return AuthService.isSessionActive();
+  static getCurrentUser(): User | null {
+    return cachedCurrentUser;
   }
 
-  static logout(): void {
-    AuthService.logoutSync();
+  static async findUserByUsernameAsync(username: string): Promise<User | null> {
+    const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
+    if (!clean) return null;
+
+    try {
+      const q = query(collection(db, 'users'), where('username', '==', clean));
+      const snap = await getDocs(q);
+      if (snap.empty) return null;
+      return snap.docs[0].data() as User;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'users');
+      return null;
+    }
   }
 
-  static getAllUsers(): StoredUserAccount[] {
-    return getAllStoredUsers();
+  static findUserByUsername(username: string): User | null {
+    const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
+    if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
+      return cachedCurrentUser;
+    }
+    return null;
   }
 
-  static findUserByEmail(email: string): StoredUserAccount | null {
-    return findStoredUserByEmail(email);
-  }
-
-  static findUserByUsername(username: string): StoredUserAccount | null {
-    return findStoredUserByUsername(username);
-  }
-
-  static findUserById(id: string): StoredUserAccount | null {
-    return findStoredUserById(id);
+  static async checkUsernameAvailable(username: string): Promise<{ available: boolean; error?: string }> {
+    const avail = await checkUsernameAvailableInFirestore(username);
+    return {
+      available: avail,
+      error: avail ? undefined : 'This username is already taken or reserved.',
+    };
   }
 
   static checkUsernameAvailability(username: string, excludeUserId?: string): boolean {
@@ -408,306 +448,432 @@ export class StorageService {
     if (!clean || clean.length < 3 || clean.length > 30) return false;
     const val = validateUsername(clean);
     if (!val.valid) return false;
-    const existing = findStoredUserByUsername(clean);
-    if (!existing) return true;
-    if (excludeUserId && existing.id === excludeUserId) return true;
-    return false;
+    if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean && cachedCurrentUser.id === excludeUserId) {
+      return true;
+    }
+    return true;
   }
 
-  static checkUsernameAvailable(username: string): { available: boolean; error?: string } {
-    const isAvail = this.checkUsernameAvailability(username);
-    return {
-      available: isAvail,
-      error: isAvail ? undefined : 'This username is already taken or reserved.',
-    };
-  }
-
-  static generateUniqueUsername(email: string): string {
-    return AuthService.generateUniqueUsername(email);
-  }
-
-  static loginWithGoogle(profile: {
-    sub: string;
-    email: string;
-    name?: string;
-    picture?: string;
-  }): { user: User; isNew: boolean } {
-    return AuthService.loginWithGoogle(profile);
-  }
-
-  static loginAsDemo(): { user: User; isNew: boolean } {
-    return AuthService.loginAsDemo();
-  }
-
-  static getCurrentUser(): User | null {
-    return AuthService.getCurrentUserSync();
+  static async updateUserAsync(partial: Partial<User>): Promise<User | null> {
+    const res = await AuthService.updateProfile(partial);
+    return res.user || null;
   }
 
   static updateUser(partial: Partial<User>): User | null {
-    const userId = this.getSessionUserId();
-    if (!userId) return null;
-
-    const users = getAllStoredUsers();
-    let updatedUser: User | null = null;
-    const updatedList = users.map((u) => {
-      if (u.id === userId) {
-        const merged: StoredUserAccount = {
-          ...u,
-          ...partial,
-          updatedAt: new Date().toISOString(),
-        };
-        updatedUser = merged;
-        return merged;
-      }
-      return u;
-    });
-
-    if (updatedUser) {
-      saveAllStoredUsers(updatedList);
+    AuthService.updateProfile(partial);
+    if (cachedCurrentUser) {
+      cachedCurrentUser = { ...cachedCurrentUser, ...partial, updatedAt: new Date().toISOString() };
+      notifyListeners();
     }
-    return updatedUser;
+    return cachedCurrentUser;
   }
 
-  // --- Async & Sync Links Operations ---
+  // --- Links Operations ---
+  static getLinks(): LinkItem[] {
+    return cachedLinks;
+  }
+
   static getLinksSync(userId?: string): LinkItem[] {
-    const targetUserId = userId || this.getSessionUserId();
-    if (!targetUserId || !isBrowser()) return [];
-    const data = localStorage.getItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${targetUserId}`);
-    if (!data) return [];
+    if (!userId || userId === cachedCurrentUser?.id) {
+      return cachedLinks;
+    }
+    return [];
+  }
+
+  static async getLinksForUserAsync(userId: string): Promise<LinkItem[]> {
     try {
-      const links: LinkItem[] = JSON.parse(data);
-      return links.sort((a, b) => a.position - b.position);
-    } catch {
+      const snap = await getDocs(collection(db, 'users', userId, 'links'));
+      const links: LinkItem[] = [];
+      snap.forEach((d) => links.push(d.data() as LinkItem));
+      return links.filter((l) => l.visible).sort((a, b) => a.position - b.position);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, `users/${userId}/links`);
       return [];
     }
-  }
-
-  static getLinks(userId?: string): LinkItem[] {
-    return this.getLinksSync(userId);
-  }
-
-  static async getLinksAsync(userId?: string): Promise<LinkItem[]> {
-    return this.getLinksSync(userId);
-  }
-
-  static async setLinks(userId: string, links: LinkItem[]): Promise<void> {
-    if (!isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify(links));
   }
 
   static getLinksForUser(userId: string): LinkItem[] {
-    if (!isBrowser()) return [];
-    const data = localStorage.getItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`);
-    if (!data) return [];
-    try {
-      const links: LinkItem[] = JSON.parse(data);
-      return links.filter((l) => l.visible).sort((a, b) => a.position - b.position);
-    } catch {
-      return [];
+    if (userId === cachedCurrentUser?.id) {
+      return cachedLinks.filter((l) => l.visible);
     }
+    return [];
   }
 
-  static addLink(link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>): { link?: LinkItem; error?: string } {
-    const user = this.getCurrentUser();
-    if (!user) return { error: 'Not authenticated' };
+  static async addLinkAsync(
+    link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>
+  ): Promise<{ link?: LinkItem; error?: string }> {
+    const uid = AuthService.getSessionUserId();
+    if (!uid) return { error: 'Not authenticated' };
 
-    const currentLinks = this.getLinks();
+    const newId = generateId();
     const now = new Date().toISOString();
-
     const newLink: LinkItem = {
       ...link,
-      id: generateId(),
-      userId: user.id,
-      position: currentLinks.length,
+      id: newId,
+      userId: uid,
+      position: cachedLinks.length,
       clicks: 0,
       createdAt: now,
       updatedAt: now,
     };
 
-    const updated = [...currentLinks, newLink];
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(updated));
+    try {
+      await setDoc(doc(db, 'users', uid, 'links', newId), newLink);
+      cachedLinks = [...cachedLinks, newLink];
+      notifyListeners();
+      return { link: newLink };
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
+      return { error: 'Failed to add link to database' };
     }
+  }
+
+  static addLink(
+    link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>
+  ): { link?: LinkItem; error?: string } {
+    StorageService.addLinkAsync(link);
+    const uid = AuthService.getSessionUserId() || 'unknown';
+    const newId = generateId();
+    const now = new Date().toISOString();
+    const newLink: LinkItem = {
+      ...link,
+      id: newId,
+      userId: uid,
+      position: cachedLinks.length,
+      clicks: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    cachedLinks = [...cachedLinks, newLink];
+    notifyListeners();
     return { link: newLink };
   }
 
-  static updateLink(id: string, partial: Partial<LinkItem>): LinkItem | null {
-    const user = this.getCurrentUser();
-    if (!user) return null;
-    const currentLinks = this.getLinks();
-    let updatedItem: LinkItem | null = null;
+  static async updateLinkAsync(id: string, partial: Partial<LinkItem>): Promise<LinkItem | null> {
+    const uid = AuthService.getSessionUserId();
+    if (!uid) return null;
 
-    const updated = currentLinks.map((item) => {
-      if (item.id === id) {
-        updatedItem = { ...item, ...partial, updatedAt: new Date().toISOString() };
-        return updatedItem;
-      }
-      return item;
-    });
+    const now = new Date().toISOString();
+    const target = cachedLinks.find((l) => l.id === id);
+    if (!target) return null;
 
-    if (isBrowser() && updatedItem) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(updated));
+    const updated = { ...target, ...partial, updatedAt: now };
+    try {
+      await setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true });
+      cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
+      notifyListeners();
+      return updated;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
+      return null;
     }
-    return updatedItem;
+  }
+
+  static updateLink(id: string, partial: Partial<LinkItem>): LinkItem | null {
+    StorageService.updateLinkAsync(id, partial);
+    const target = cachedLinks.find((l) => l.id === id);
+    if (!target) return null;
+    const updated = { ...target, ...partial, updatedAt: new Date().toISOString() };
+    cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
+    notifyListeners();
+    return updated;
+  }
+
+  static async deleteLinkAsync(id: string): Promise<boolean> {
+    const uid = AuthService.getSessionUserId();
+    if (!uid) return false;
+
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'links', id));
+      cachedLinks = cachedLinks.filter((l) => l.id !== id).map((item, index) => ({
+        ...item,
+        position: index,
+      }));
+      notifyListeners();
+      return true;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
+      return false;
+    }
   }
 
   static deleteLink(id: string): boolean {
-    const user = this.getCurrentUser();
-    if (!user) return false;
-    const currentLinks = this.getLinks();
-    const filtered = currentLinks.filter((l) => l.id !== id);
-
-    const reindexed = filtered.map((item, index) => ({
+    StorageService.deleteLinkAsync(id);
+    cachedLinks = cachedLinks.filter((l) => l.id !== id).map((item, index) => ({
       ...item,
       position: index,
     }));
-
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(reindexed));
-    }
+    notifyListeners();
     return true;
   }
 
-  static reorderLinks(orderedIds: string[]): LinkItem[] {
-    const user = this.getCurrentUser();
-    if (!user) return [];
-    const currentLinks = this.getLinks();
-    const linkMap = new Map(currentLinks.map((l) => [l.id, l]));
+  static async reorderLinksAsync(orderedIds: string[]): Promise<LinkItem[]> {
+    const uid = AuthService.getSessionUserId();
+    if (!uid) return [];
 
+    const linkMap = new Map(cachedLinks.map((l) => [l.id, l]));
     const reordered: LinkItem[] = [];
+    const now = new Date().toISOString();
+
     orderedIds.forEach((id, index) => {
       const item = linkMap.get(id);
       if (item) {
-        reordered.push({ ...item, position: index, updatedAt: new Date().toISOString() });
+        reordered.push({ ...item, position: index, updatedAt: now });
       }
     });
 
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(reordered));
+    try {
+      const batch = writeBatch(db);
+      reordered.forEach((item) => {
+        batch.set(doc(db, 'users', uid, 'links', item.id), item);
+      });
+      await batch.commit();
+      cachedLinks = reordered;
+      notifyListeners();
+      return reordered;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${uid}/links`);
+      return cachedLinks;
     }
+  }
+
+  static reorderLinks(orderedIds: string[]): LinkItem[] {
+    StorageService.reorderLinksAsync(orderedIds);
+    const linkMap = new Map(cachedLinks.map((l) => [l.id, l]));
+    const reordered: LinkItem[] = [];
+    const now = new Date().toISOString();
+
+    orderedIds.forEach((id, index) => {
+      const item = linkMap.get(id);
+      if (item) {
+        reordered.push({ ...item, position: index, updatedAt: now });
+      }
+    });
+
+    cachedLinks = reordered;
+    notifyListeners();
     return reordered;
   }
 
   // --- Theme Operations ---
+  static getTheme(): ThemeConfig {
+    if (cachedTheme) return cachedTheme;
+    const uid = AuthService.getSessionUserId() || 'guest';
+    return presetToConfig(THEME_PRESETS[0], uid);
+  }
+
   static getThemeSync(userId?: string): ThemeConfig {
-    const targetUserId = userId || this.getSessionUserId() || 'guest';
-    const fallback: ThemeConfig = presetToConfig(THEME_PRESETS[0], targetUserId);
-    if (!isBrowser()) return fallback;
+    if (cachedTheme) return cachedTheme;
+    const uid = userId || AuthService.getSessionUserId() || 'guest';
+    return presetToConfig(THEME_PRESETS[0], uid);
+  }
 
-    const data = localStorage.getItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${targetUserId}`);
-    if (!data) return fallback;
+  static async getThemeForUserAsync(userId: string): Promise<ThemeConfig> {
     try {
-      return JSON.parse(data);
-    } catch {
-      return fallback;
+      const snap = await getDoc(doc(db, 'users', userId, 'theme', 'default'));
+      if (snap.exists()) {
+        return snap.data() as ThemeConfig;
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `users/${userId}/theme/default`);
     }
-  }
-
-  static getTheme(userId?: string): ThemeConfig {
-    return this.getThemeSync(userId);
-  }
-
-  static async getThemeAsync(userId?: string): Promise<ThemeConfig> {
-    return this.getThemeSync(userId);
-  }
-
-  static async setTheme(userId: string, theme: ThemeConfig): Promise<void> {
-    if (!isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(theme));
+    return presetToConfig(THEME_PRESETS[0], userId);
   }
 
   static getThemeForUser(userId: string): ThemeConfig {
-    return this.getThemeSync(userId);
+    if (userId === cachedCurrentUser?.id && cachedTheme) {
+      return cachedTheme;
+    }
+    return presetToConfig(THEME_PRESETS[0], userId);
   }
 
-  static updateTheme(partial: Partial<ThemeConfig>): ThemeConfig {
-    const user = this.getCurrentUser();
-    const current = this.getTheme();
+  static async updateThemeAsync(partial: Partial<ThemeConfig>): Promise<ThemeConfig> {
+    const uid = AuthService.getSessionUserId();
+    const fallback = presetToConfig(THEME_PRESETS[0], uid || 'guest');
+    const current = cachedTheme || fallback;
+
     const updated: ThemeConfig = {
       ...current,
       ...partial,
-      userId: user?.id || current.userId,
+      userId: uid || current.userId,
       updatedAt: new Date().toISOString(),
     };
 
-    if (user && isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${user.id}`, JSON.stringify(updated));
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid, 'theme', 'default'), updated);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/theme/default`);
+      }
     }
+
+    cachedTheme = updated;
+    notifyListeners();
+    return updated;
+  }
+
+  static updateTheme(partial: Partial<ThemeConfig>): ThemeConfig {
+    StorageService.updateThemeAsync(partial);
+    const uid = AuthService.getSessionUserId() || 'guest';
+    const fallback = presetToConfig(THEME_PRESETS[0], uid);
+    const current = cachedTheme || fallback;
+
+    const updated: ThemeConfig = {
+      ...current,
+      ...partial,
+      userId: uid,
+      updatedAt: new Date().toISOString(),
+    };
+
+    cachedTheme = updated;
+    notifyListeners();
     return updated;
   }
 
   // --- Socials Operations ---
+  static getSocials(): SocialLinks {
+    if (cachedSocials) return cachedSocials;
+    const uid = AuthService.getSessionUserId() || 'guest';
+    return { id: 'default', userId: uid };
+  }
+
   static getSocialsSync(userId?: string): SocialLinks {
-    const targetUserId = userId || this.getSessionUserId() || 'guest';
-    const fallback: SocialLinks = { id: generateId(), userId: targetUserId };
-    if (!isBrowser()) return fallback;
+    if (cachedSocials) return cachedSocials;
+    const uid = userId || AuthService.getSessionUserId() || 'guest';
+    return { id: 'default', userId: uid };
+  }
 
-    const data = localStorage.getItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${targetUserId}`);
-    if (!data) return fallback;
+  static async getSocialsForUserAsync(userId: string): Promise<SocialLinks> {
     try {
-      return JSON.parse(data);
-    } catch {
-      return fallback;
+      const snap = await getDoc(doc(db, 'users', userId, 'socials', 'default'));
+      if (snap.exists()) {
+        return snap.data() as SocialLinks;
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `users/${userId}/socials/default`);
     }
-  }
-
-  static getSocials(userId?: string): SocialLinks {
-    return this.getSocialsSync(userId);
-  }
-
-  static async getSocialsAsync(userId?: string): Promise<SocialLinks> {
-    return this.getSocialsSync(userId);
-  }
-
-  static async setSocials(userId: string, socials: SocialLinks): Promise<void> {
-    if (!isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify(socials));
+    return { id: 'default', userId };
   }
 
   static getSocialsForUser(userId: string): SocialLinks {
-    return this.getSocialsSync(userId);
+    if (userId === cachedCurrentUser?.id && cachedSocials) {
+      return cachedSocials;
+    }
+    return { id: 'default', userId };
   }
 
-  static updateSocials(partial: Partial<SocialLinks>): SocialLinks {
-    const user = this.getCurrentUser();
-    const current = this.getSocials();
+  static async updateSocialsAsync(partial: Partial<SocialLinks>): Promise<SocialLinks> {
+    const uid = AuthService.getSessionUserId();
+    const current = cachedSocials || { id: 'default', userId: uid || 'guest' };
+
     const updated: SocialLinks = {
       ...current,
       ...partial,
-      userId: user?.id || current.userId,
+      userId: uid || current.userId,
     };
 
-    if (user && isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${user.id}`, JSON.stringify(updated));
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid, 'socials', 'default'), updated);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/socials/default`);
+      }
     }
+
+    cachedSocials = updated;
+    notifyListeners();
+    return updated;
+  }
+
+  static updateSocials(partial: Partial<SocialLinks>): SocialLinks {
+    StorageService.updateSocialsAsync(partial);
+    const uid = AuthService.getSessionUserId() || 'guest';
+    const current = cachedSocials || { id: 'default', userId: uid };
+
+    const updated: SocialLinks = {
+      ...current,
+      ...partial,
+      userId: uid,
+    };
+
+    cachedSocials = updated;
+    notifyListeners();
     return updated;
   }
 
   // --- Analytics Operations ---
+  static getAnalytics(): AnalyticsEvent[] {
+    return cachedAnalytics;
+  }
+
   static getAnalyticsSync(userId?: string): AnalyticsEvent[] {
-    const targetUserId = userId || this.getSessionUserId();
-    if (!targetUserId || !isBrowser()) return [];
-    const data = localStorage.getItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${targetUserId}`);
-    if (!data) return [];
+    if (!userId || userId === cachedCurrentUser?.id) {
+      return cachedAnalytics;
+    }
+    return [];
+  }
+
+  static async trackEvent(
+    userId: string,
+    event: 'view' | 'click',
+    meta?: { linkId?: string; referrer?: string }
+  ): Promise<void> {
+    if (!userId) return;
+
+    const eventId = generateId();
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const isTablet = /iPad|Tablet/i.test(userAgent);
+    const device = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
+
+    let referrer = meta?.referrer;
+    if (!referrer && typeof document !== 'undefined' && document.referrer) {
+      try {
+        referrer = new URL(document.referrer).hostname;
+      } catch {
+        referrer = 'Direct';
+      }
+    }
+    if (!referrer) referrer = 'Direct';
+
+    const eventRecord: AnalyticsEvent = {
+      id: eventId,
+      userId,
+      linkId: meta?.linkId || null,
+      event,
+      device,
+      referrer,
+      userAgent,
+      createdAt: new Date().toISOString(),
+    };
+
     try {
-      return JSON.parse(data);
-    } catch {
-      return [];
+      await setDoc(doc(db, 'users', userId, 'analytics', eventId), eventRecord);
+      if (userId === cachedCurrentUser?.id) {
+        cachedAnalytics.push(eventRecord);
+        notifyListeners();
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${userId}/analytics/${eventId}`);
+    }
+
+    if (event === 'click' && meta?.linkId) {
+      try {
+        const linkRef = doc(db, 'users', userId, 'links', meta.linkId);
+        const linkSnap = await getDoc(linkRef);
+        if (linkSnap.exists()) {
+          const lData = linkSnap.data() as LinkItem;
+          await updateDoc(linkRef, { clicks: (lData.clicks || 0) + 1 });
+        }
+      } catch {
+        // non-blocking
+      }
     }
   }
 
-  static getAnalytics(userId?: string): AnalyticsEvent[] {
-    return this.getAnalyticsSync(userId);
-  }
-
-  static async getAnalyticsAsync(userId?: string, range?: number | string): Promise<AnalyticsSummary> {
-    const days = typeof range === 'number' ? range : range === '30d' ? 30 : range === '90d' ? 90 : 7;
-    return this.getAnalyticsSummary(days, userId);
-  }
-
   static getAnalyticsSummary(days = 7, userId?: string): AnalyticsSummary {
-    const events = this.getAnalyticsSync(userId);
-    const links = this.getLinksSync(userId);
+    const events = cachedAnalytics;
+    const links = cachedLinks;
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
@@ -763,7 +929,6 @@ export class StorageService {
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 5);
 
-    // Devices breakdown
     const deviceMap = new Map<string, number>();
     filtered.forEach((e) => {
       const d = e.device || 'Desktop';
@@ -779,7 +944,6 @@ export class StorageService {
       }))
       .sort((a, b) => b.count - a.count);
 
-    // Referrers breakdown (no country names)
     const referrerMap = new Map<string, number>();
     filtered.forEach((e) => {
       const r = e.referrer || 'Direct';
@@ -808,132 +972,25 @@ export class StorageService {
     };
   }
 
-  static async trackEvent(
-    userId: string,
-    event: 'view' | 'click',
-    meta?: { linkId?: string; referrer?: string }
-  ): Promise<void> {
-    this.recordEvent({
-      userId,
-      event,
-      linkId: meta?.linkId,
-      referrer: meta?.referrer,
-    });
-  }
-
-  static recordEvent(params: {
-    userId: string;
-    event: 'view' | 'click';
-    linkId?: string;
-    referrer?: string;
-  }): void {
-    if (!isBrowser() || !params.userId) return;
-
-    const userAgent = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-    const isTablet = /iPad|Tablet/i.test(userAgent);
-    const device = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
-
-    let referrer = params.referrer;
-    if (!referrer && typeof document !== 'undefined' && document.referrer) {
-      try {
-        referrer = new URL(document.referrer).hostname;
-      } catch {
-        referrer = 'Direct';
-      }
-    }
-    if (!referrer) referrer = 'Direct';
-
-    const eventRecord: AnalyticsEvent = {
-      id: generateId(),
-      userId: params.userId,
-      linkId: params.linkId,
-      event: params.event,
-      device,
-      referrer,
-      userAgent,
-      createdAt: new Date().toISOString(),
-    };
-
-    const key = `${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${params.userId}`;
-    const raw = localStorage.getItem(key);
-    let events: AnalyticsEvent[] = [];
-    if (raw) {
-      try {
-        events = JSON.parse(raw);
-      } catch {
-        events = [];
-      }
-    }
-    events.push(eventRecord);
-    localStorage.setItem(key, JSON.stringify(events));
-
-    if (params.event === 'click' && params.linkId) {
-      const linksKey = `${STORAGE_KEYS.USER_LINKS_PREFIX}${params.userId}`;
-      const linksRaw = localStorage.getItem(linksKey);
-      if (linksRaw) {
-        try {
-          const links: LinkItem[] = JSON.parse(linksRaw);
-          const updatedLinks = links.map((lnk) =>
-            lnk.id === params.linkId ? { ...lnk, clicks: (lnk.clicks || 0) + 1 } : lnk
-          );
-          localStorage.setItem(linksKey, JSON.stringify(updatedLinks));
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }
-
-  static exportUserData(): string {
-    const user = this.getCurrentUser();
-    if (!user || !isBrowser()) return '{}';
-
+  static async exportData(): Promise<Blob> {
+    const user = cachedCurrentUser;
     const exportBundle = {
       app: 'LinkVM',
       domain: 'linkvm.online',
       exportedAt: new Date().toISOString(),
       user,
-      links: this.getLinks(),
-      theme: this.getTheme(),
-      socials: this.getSocials(),
-      analytics: this.getAnalytics(),
-    };
-
-    return JSON.stringify(exportBundle, null, 2);
-  }
-
-  static async exportData(userId?: string): Promise<Blob> {
-    const targetId = userId || this.getSessionUserId();
-    const user = targetId ? findStoredUserById(targetId) : null;
-    const exportBundle = {
-      app: 'LinkVM',
-      domain: 'linkvm.online',
-      exportedAt: new Date().toISOString(),
-      user,
-      links: targetId ? this.getLinksSync(targetId) : [],
-      theme: targetId ? this.getThemeSync(targetId) : null,
-      socials: targetId ? this.getSocialsSync(targetId) : null,
-      analytics: targetId ? this.getAnalyticsSync(targetId) : [],
+      links: cachedLinks,
+      theme: cachedTheme,
+      socials: cachedSocials,
+      analytics: cachedAnalytics,
     };
 
     const json = JSON.stringify(exportBundle, null, 2);
     return new Blob([json], { type: 'application/json' });
   }
 
-  static deleteAccount(): boolean {
-    const userId = this.getSessionUserId();
-    if (!userId || !isBrowser()) return false;
-
-    localStorage.removeItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`);
-    localStorage.removeItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`);
-
-    const remainingUsers = getAllStoredUsers().filter((u) => u.id !== userId);
-    saveAllStoredUsers(remainingUsers);
-
-    this.logout();
+  static async deleteAccount(): Promise<boolean> {
+    await AuthService.deleteAccount();
     return true;
   }
 }

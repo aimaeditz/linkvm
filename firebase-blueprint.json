@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered user profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "sharePattern": { "type": "string" },
+        "invitesSent": { "type": "number" },
+        "invitesAccepted": { "type": "number" },
+        "referralCode": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["email", "username"]
+    },
+    "LinkItem": {
+      "title": "LinkItem",
+      "description": "User's individual link card item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "icon": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "position": { "type": "number" },
+        "clicks": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "url"]
+    },
+    "ThemeConfig": {
+      "title": "ThemeConfig",
+      "description": "User profile theme configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "presetId": { "type": "string" },
+        "backgroundType": { "type": "string" },
+        "fontFamily": { "type": "string" }
+      }
+    },
+    "SocialLinks": {
+      "title": "SocialLinks",
+      "description": "User's social media handles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" }
+      }
+    },
+    "AnalyticsEvent": {
+      "title": "AnalyticsEvent",
+      "description": "Page view or link click event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "event": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile document"
+    },
+    "/users/{userId}/links/{linkId}": {
+      "schema": { "$ref": "#/entities/LinkItem" },
+      "description": "Subcollection of user links"
+    },
+    "/users/{userId}/theme/{themeId}": {
+      "schema": { "$ref": "#/entities/ThemeConfig" },
+      "description": "Subcollection of user theme configs"
+    },
+    "/users/{userId}/socials/{socialsId}": {
+      "schema": { "$ref": "#/entities/SocialLinks" },
+      "description": "Subcollection of user social links"
+    },
+    "/users/{userId}/analytics/{eventId}": {
+      "schema": { "$ref": "#/entities/AnalyticsEvent" },
+      "description": "Subcollection of user analytics events"
+    }
+  }
+}

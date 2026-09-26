@@ -125,11 +125,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <p className="text-xs font-bold text-slate-900 truncate">{user.name || 'Creator'}</p>
-                      {user.isDemoUser && (
-                        <span className="shrink-0 px-1 py-0.2 text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200 rounded">
-                          Demo
-                        </span>
-                      )}
                     </div>
                     <p className="text-[10px] text-slate-400 font-mono truncate">{user.email}</p>
                   </div>

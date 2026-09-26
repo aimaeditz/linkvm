@@ -2,6 +2,8 @@ export interface User {
   id: string;
   email: string;
   name?: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
   username: string;
   bio?: string | null;
   avatarUrl?: string | null;
@@ -23,7 +25,6 @@ export interface User {
   googleEmail?: string;
   googleName?: string;
   googlePicture?: string;
-  isDemoUser?: boolean;
   notifications?: {
     emailOnView?: boolean;
     emailOnClick?: boolean;

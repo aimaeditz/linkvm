@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, LinkItem, ThemeConfig, SocialLinks, AnalyticsEvent } from './types';
-import { StorageService } from './lib/storage';
+import { StorageService, subscribeToStore } from './lib/storage';
 
 // Landing Page Components
 import { Navbar } from './components/landing/Navbar';
@@ -54,10 +54,10 @@ export default function App() {
   const [analytics, setAnalytics] = useState<AnalyticsEvent[]>(StorageService.getAnalytics());
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('saved');
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [, setSaveError] = useState<string | null>(null);
   const onRetryRef = useRef<(() => void) | null>(null);
 
-  // Viewed profile state for proper /:username dynamic resolution (including prefix patterns and subdomain)
+  // Viewed profile state for proper /:username dynamic resolution
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [profileLinks, setProfileLinks] = useState<LinkItem[]>([]);
   const [profileTheme, setProfileTheme] = useState<ThemeConfig | null>(null);
@@ -74,6 +74,13 @@ export default function App() {
     setSocials(StorageService.getSocials());
     setAnalytics(StorageService.getAnalytics());
   };
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStore(() => {
+      refreshAllState();
+    });
+    return () => unsubscribe();
+  }, []);
 
   const normalizeUsername = (username: string): string => {
     let cleaned = username.trim().toLowerCase();
@@ -104,7 +111,7 @@ export default function App() {
     return path.replace(/^\//, '').trim();
   };
 
-  const resolveRouteAndLoad = (pathname = window.location.pathname) => {
+  const resolveRouteAndLoad = async (pathname = window.location.pathname) => {
     const cleanPath = getCleanRoutePath(pathname);
 
     // Check subdomain user first
@@ -112,11 +119,11 @@ export default function App() {
     const hostParts = hostname.split('.');
     let targetUsername = '';
 
-    const isDevOrStandard = 
-      hostname.includes('run.app') || 
-      hostname.includes('localhost') || 
-      hostname.includes('127.0.0.1') || 
-      hostname.includes('web.app') || 
+    const isDevOrStandard =
+      hostname.includes('run.app') ||
+      hostname.includes('localhost') ||
+      hostname.includes('127.0.0.1') ||
+      hostname.includes('web.app') ||
       hostname.includes('github.dev') ||
       hostname.includes('vercel.app') ||
       hostname.includes('gitpod.io');
@@ -127,12 +134,12 @@ export default function App() {
 
     if (targetUsername) {
       const normalizedSubdomain = normalizeUsername(targetUsername);
-      const found = StorageService.findUserByUsername(normalizedSubdomain);
+      const found = await StorageService.findUserByUsernameAsync(normalizedSubdomain);
       if (found) {
         setProfileUser(found);
-        setProfileLinks(StorageService.getLinksForUser(found.id));
-        setProfileTheme(StorageService.getThemeForUser(found.id));
-        setProfileSocials(StorageService.getSocialsForUser(found.id));
+        setProfileLinks(await StorageService.getLinksForUserAsync(found.id));
+        setProfileTheme(await StorageService.getThemeForUserAsync(found.id));
+        setProfileSocials(await StorageService.getSocialsForUserAsync(found.id));
         setRoute('public_profile');
       } else {
         setRoute('404');
@@ -152,7 +159,7 @@ export default function App() {
       'terms',
       'invite',
       '404',
-      'index.html'
+      'index.html',
     ]);
 
     const segments = cleanPath.split('/').filter(Boolean);
@@ -165,7 +172,7 @@ export default function App() {
 
     const firstSegment = segments[0];
 
-    // Check if the path starts with /r/{code} (short referral URL)
+    // Short referral URL
     if (firstSegment === 'r' && segments.length >= 2) {
       const code = segments[1];
       if (code) {
@@ -177,28 +184,27 @@ export default function App() {
       }
     }
 
-    // Check if the path is a dashboard nested path
+    // Dashboard nested path
     if (firstSegment === 'dashboard') {
       if (!StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/login'));
         setRoute('login');
         return;
       }
-      
+
       if (segments.length === 1) {
         setRoute('dashboard');
         setDashboardTab('overview');
         return;
       }
-      
-      // It's a dashboard nested tab, like dashboard/links
+
       const tab = segments.slice(1).join('/');
       setRoute('dashboard');
       setDashboardTab(tab || 'overview');
       return;
     }
 
-    // Check other static routes
+    // Static routes
     if (firstSegment === 'login') {
       if (StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/dashboard'));
@@ -251,20 +257,19 @@ export default function App() {
       return;
     }
 
-    // Public profile route (/{username}):
-    // - Match only when the first segment is NOT in the reserved list above.
-    // - Normalize the segment by stripping leading @, $, -, +, !, ~ characters, lowercasing, and trimming.
-    // - If the normalized username exists in the local user store -> render the public profile.
-    // - If it does not exist -> render the 404 "Profile Not Found" page (only if segments.length === 1, indicating username lookup)
+    // Public profile route (/{username})
     if (!RESERVED_PATHS.has(firstSegment.toLowerCase())) {
       if (segments.length === 1) {
         const normalized = normalizeUsername(firstSegment);
-        const userFound = StorageService.findUserByUsername(normalized);
+        let userFound = StorageService.findUserByUsername(normalized);
+        if (!userFound) {
+          userFound = await StorageService.findUserByUsernameAsync(normalized);
+        }
         if (userFound) {
           setProfileUser(userFound);
-          setProfileLinks(StorageService.getLinksForUser(userFound.id));
-          setProfileTheme(StorageService.getThemeForUser(userFound.id));
-          setProfileSocials(StorageService.getSocialsForUser(userFound.id));
+          setProfileLinks(await StorageService.getLinksForUserAsync(userFound.id));
+          setProfileTheme(await StorageService.getThemeForUserAsync(userFound.id));
+          setProfileSocials(await StorageService.getSocialsForUserAsync(userFound.id));
           setRoute('public_profile');
           return;
         } else {
@@ -274,22 +279,18 @@ export default function App() {
       }
     }
 
-    // Default fallback:
-    // - If the path cannot be matched to any known route -> render the Landing page (NOT the 404 page).
     setRoute('landing');
   };
 
   useEffect(() => {
     refreshAllState();
-    
-    // Capture referral code if present in the URL
+
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
       localStorage.setItem('linkvm_ref_code', ref);
     }
 
-    // Initialize Routing
     resolveRouteAndLoad();
 
     const handlePopState = () => {
@@ -301,8 +302,8 @@ export default function App() {
     };
   }, []);
 
-  const handleLogout = () => {
-    StorageService.logout();
+  const handleLogout = async () => {
+    await StorageService.logout();
     refreshAllState();
     window.history.pushState(null, '', getAppPath('/'));
     resolveRouteAndLoad('/');
@@ -314,7 +315,6 @@ export default function App() {
     resolveRouteAndLoad('/dashboard');
   };
 
-  // Quick navigation handler
   const handleNavigate = (targetRoute: string) => {
     let newPath = '/';
     if (targetRoute === 'landing') newPath = '/';
@@ -330,7 +330,6 @@ export default function App() {
       const tab = targetRoute.replace('dashboard_', '');
       newPath = `/dashboard/${tab}`;
     } else if (targetRoute.startsWith('#')) {
-      // It's a hash anchor
       const cleanCurrent = getCleanRoutePath(window.location.pathname);
       if (cleanCurrent !== '') {
         window.history.pushState(null, '', getAppPath(`/${targetRoute}`));
@@ -356,7 +355,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Safe fallback user object if in preview/dashboard
   const activeUser: User = currentUser || {
     id: 'guest',
     name: 'LinkVM User',
@@ -372,7 +370,6 @@ export default function App() {
     updatedAt: new Date().toISOString(),
   };
 
-  // Render Page Based on Route
   if (route === 'login') {
     return <LoginPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
   }
@@ -408,10 +405,14 @@ export default function App() {
         links={profileLinks}
         theme={profileTheme || theme}
         socials={profileSocials || socials}
-        onBackToDashboard={currentUser && currentUser.id === profileUser.id ? () => {
-          window.history.pushState(null, '', getAppPath('/dashboard'));
-          resolveRouteAndLoad('/dashboard');
-        } : undefined}
+        onBackToDashboard={
+          currentUser && currentUser.id === profileUser.id
+            ? () => {
+                window.history.pushState(null, '', getAppPath('/dashboard'));
+                resolveRouteAndLoad('/dashboard');
+              }
+            : undefined
+        }
         onNavigateHome={() => {
           window.history.pushState(null, '', getAppPath('/'));
           resolveRouteAndLoad('/');
@@ -466,7 +467,6 @@ export default function App() {
   if (route === 'dashboard') {
     return (
       <div className="flex h-screen w-full bg-slate-50/70 overflow-hidden font-sans">
-        {/* Desktop Fixed Sidebar (7 items) */}
         <div className="hidden lg:flex shrink-0">
           <Sidebar
             currentTab={dashboardTab}
@@ -478,7 +478,6 @@ export default function App() {
           />
         </div>
 
-        {/* Mobile Slide-in Drawer with Framer Motion */}
         <MobileNav
           open={mobileNavOpen}
           onClose={() => setMobileNavOpen(false)}
@@ -495,7 +494,6 @@ export default function App() {
           }}
         />
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
           <Topbar
             title={dashboardTab.replace('-', ' ')}
@@ -568,16 +566,13 @@ export default function App() {
               />
             )}
 
-            {dashboardTab === 'guide' && (
-              <GuidePage />
-            )}
+            {dashboardTab === 'guide' && <GuidePage />}
           </main>
         </div>
       </div>
     );
   }
 
-  // Default: Landing Page
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-white text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       <ScrollProgress />

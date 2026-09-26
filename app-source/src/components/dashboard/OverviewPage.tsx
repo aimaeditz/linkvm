@@ -65,11 +65,6 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                 <span>{BRAND.planLabel}</span>
                 <span className="font-normal text-emerald-600">({BRAND.badge})</span>
               </div>
-              {user.isDemoUser && (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-extrabold">
-                  Demo Account
-                </span>
-              )}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
