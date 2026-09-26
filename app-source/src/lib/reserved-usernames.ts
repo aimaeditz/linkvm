@@ -36,6 +36,10 @@ export const RESERVED_USERNAMES = new Set([
   'security',
   'status',
   'billing',
+  'www',
+  'app',
+  'static',
+  'assets',
 ]);
 
 export function isReservedUsername(username: string): boolean {

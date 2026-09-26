@@ -12,9 +12,10 @@ export const SocialIconsRow: React.FC<SocialIconsRowProps> = ({ socials, theme }
   if (!socials) return null;
 
   // Extract filled socials (skip empty values, id and userId)
+  const socialsMap = socials as unknown as Record<string, string | null | undefined>;
   const filledPlatforms = SOCIAL_PLATFORMS.filter((plat) => {
-    const val = (socials as any)[plat.id];
-    return Boolean(val) && val.trim() !== '';
+    const val = socialsMap[plat.id];
+    return Boolean(val) && (val?.trim() ?? '') !== '';
   });
 
   if (filledPlatforms.length === 0) return null;
@@ -94,7 +95,7 @@ export const SocialIconsRow: React.FC<SocialIconsRowProps> = ({ socials, theme }
     <div className={`w-full flex ${alignClass} py-2`}>
       <div className={`${layoutClass} ${spacingClass} ${alignClass} items-center max-w-full`}>
         {filledPlatforms.map((plat) => {
-          const val = (socials as any)[plat.id];
+          const val = socialsMap[plat.id] || '';
           const fullUrl = val.startsWith('http') || val.startsWith('mailto:') ? val : `${plat.prefix}${val}`;
 
           // Styling options

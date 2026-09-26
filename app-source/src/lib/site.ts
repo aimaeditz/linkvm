@@ -3,7 +3,8 @@
 
 export function getSiteUrl(): string {
   // 1. Vite environment variable (primary for client-side Vite SPA build)
-  const viteSiteUrl = (import.meta as any)?.env?.VITE_SITE_URL || (import.meta as any)?.env?.VITE_APP_URL;
+  const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+  const viteSiteUrl = envMap?.VITE_SITE_URL || envMap?.VITE_APP_URL;
   if (viteSiteUrl && typeof viteSiteUrl === 'string' && viteSiteUrl.trim() !== '') {
     return viteSiteUrl.trim().replace(/\/+$/, '');
   }

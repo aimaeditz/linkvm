@@ -81,13 +81,15 @@ export default function App() {
   };
 
   const getAppPath = (path: string): string => {
-    const base = ((import.meta as any)?.env?.BASE_URL || '/').replace(/\/$/, '');
+    const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+    const base = (envMap?.BASE_URL || '/').replace(/\/$/, '');
     const clean = path.startsWith('/') ? path : `/${path}`;
     return base ? `${base}${clean}` : clean;
   };
 
   const getCleanRoutePath = (pathname = window.location.pathname): string => {
-    const base = ((import.meta as any)?.env?.BASE_URL || '/');
+    const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+    const base = envMap?.BASE_URL || '/';
     let path = pathname;
     if (base !== '/' && path.startsWith(base)) {
       path = path.slice(base.length);

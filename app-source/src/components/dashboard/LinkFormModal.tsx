@@ -233,7 +233,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
                   <label className="text-xs font-bold text-slate-700">Button Animation</label>
                   <select
                     value={animation}
-                    onChange={(e) => setAnimation(e.target.value as any)}
+                    onChange={(e) => setAnimation(e.target.value as 'none' | 'pulse' | 'bounce' | 'glow')}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:border-indigo-500 bg-white"
                   >
                     <option value="none">None (Standard)</option>

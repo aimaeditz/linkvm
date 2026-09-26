@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Logo } from '../shared/Logo';
-import { StorageService } from '../../lib/storage';
+import { StorageService, AuthService } from '../../lib/storage';
 import { getSiteDomain } from '../../lib/site';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
-import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle, Sparkles, AtSign, Loader2 } from 'lucide-react';
+import { User as UserIcon, Mail, Lock, Eye, EyeOff, ArrowRight, Check, AlertCircle, Sparkles, AtSign, Loader2 } from 'lucide-react';
+import type { User } from '../../types';
 
 export interface SignupPageProps {
   onSuccess?: () => void;
@@ -26,7 +27,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
   // Real debounced username availability state
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle');
   const [usernameFeedback, setUsernameFeedback] = useState<string>('');
-  const usernameDebounceRef = useRef<any>(null);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -36,7 +37,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
       try {
         const users = StorageService.getAllUsers();
         const found = users.find(
-          (u: any) => u.username?.toLowerCase() === refParam.toLowerCase() || u.referralCode === refParam
+          (u: User & { referralCode?: string }) => u.username?.toLowerCase() === refParam.toLowerCase() || u.referralCode === refParam
         );
         if (found && found.username) {
           setReferredByUsername(found.username);
@@ -255,7 +256,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
               </label>
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-                  <User size={16} />
+                  <UserIcon size={16} />
                 </div>
                 <input
                   required

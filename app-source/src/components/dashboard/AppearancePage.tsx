@@ -32,7 +32,7 @@ export const AppearancePage: React.FC<AppearancePageProps> = ({
   const [isSavingManual, setIsSavingManual] = useState(false);
 
   // Debounce ref
-  const debounceTimeoutRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync state if prop changes from outside
   useEffect(() => {
@@ -130,8 +130,9 @@ export const AppearancePage: React.FC<AppearancePageProps> = ({
       
       setSaveStatus('saved');
       showToast('Theme presets and customizations saved successfully!', 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'An unexpected error occurred while saving.', 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred while saving.';
+      showToast(message, 'error');
     } finally {
       setIsSavingManual(false);
       setTimeout(() => {

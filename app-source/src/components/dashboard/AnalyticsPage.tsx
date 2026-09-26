@@ -3,8 +3,7 @@ import { AnalyticsEvent, LinkItem } from '../../types';
 import { StorageService } from '../../lib/storage';
 import { StatCard } from './StatCard';
 import { AnalyticsCharts } from './AnalyticsCharts';
-import { Download, Eye, MousePointerClick, Users, TrendingUp, Calendar, ExternalLink } from 'lucide-react';
-import { formatNumber } from '../../lib/utils';
+import { Download, Eye, MousePointerClick, Users, TrendingUp, Calendar } from 'lucide-react';
 
 interface AnalyticsPageProps {
   events: AnalyticsEvent[];
@@ -15,16 +14,18 @@ interface AnalyticsPageProps {
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   events,
   links,
-  onViewPublic,
 }) => {
-  const [timeRange, setTimeRange] = useState<number>(7);
-  const summary = StorageService.getAnalyticsSummary(timeRange);
+  const [selectedRange, setSelectedRange] = useState<'7d' | '30d' | '90d' | 'custom'>('7d');
+  const [customDays, setCustomDays] = useState<number>(14);
+
+  const effectiveDays = selectedRange === '7d' ? 7 : selectedRange === '30d' ? 30 : selectedRange === '90d' ? 90 : customDays;
+  const summary = StorageService.getAnalyticsSummary(effectiveDays);
 
   const handleExportCSV = () => {
     const csvContent = [
-      'Date,Event,Device,Referrer',
+      'Date,Event,LinkID,Device,Referrer',
       ...events.map(
-        (e) => `"${e.createdAt}","${e.event}","${e.device || 'Desktop'}","${e.referrer || 'Direct'}"`
+        (e) => `"${e.createdAt}","${e.event}","${e.linkId || ''}","${e.device || 'Desktop'}","${e.referrer || 'Direct'}"`
       ),
     ].join('\n');
 
@@ -57,18 +58,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         </div>
 
         {/* Timeframe & Export */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center p-1 bg-slate-200/80 rounded-xl">
-            {[
-              { days: 7, label: '7D' },
-              { days: 30, label: '30D' },
-              { days: 90, label: '90D' },
-            ].map((t) => (
+            {(
+              [
+                { id: '7d', label: '7D' },
+                { id: '30d', label: '30D' },
+                { id: '90d', label: '90D' },
+                { id: 'custom', label: 'Custom' },
+              ] as const
+            ).map((t) => (
               <button
-                key={t.days}
-                onClick={() => setTimeRange(t.days)}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                  timeRange === t.days
+                key={t.id}
+                onClick={() => setSelectedRange(t.id)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  selectedRange === t.id
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
@@ -77,6 +81,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
               </button>
             ))}
           </div>
+
+          {selectedRange === 'custom' && (
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-xl">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={customDays}
+                onChange={(e) => setCustomDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+                className="w-12 text-xs font-mono font-bold text-slate-800 text-center focus:outline-none"
+              />
+              <span className="text-xs text-slate-400 font-medium">days</span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -94,7 +113,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         <StatCard
           title="Total Views"
           value={summary.totalViews === 0 ? '0' : summary.totalViews.toLocaleString()}
-          change={summary.totalViews === 0 ? '0 — No data yet' : `Last ${timeRange} days`}
+          change={summary.totalViews === 0 ? '0 — No data yet' : `Last ${effectiveDays} days`}
           isPositive={summary.totalViews > 0}
           icon={<Eye size={20} />}
           description="Profile page impressions"
@@ -102,7 +121,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         <StatCard
           title="Total Clicks"
           value={summary.totalClicks === 0 ? '0' : summary.totalClicks.toLocaleString()}
-          change={summary.totalClicks === 0 ? '0 — No data yet' : `Last ${timeRange} days`}
+          change={summary.totalClicks === 0 ? '0 — No data yet' : `Last ${effectiveDays} days`}
           isPositive={summary.totalClicks > 0}
           icon={<MousePointerClick size={20} />}
           description="Outbound link conversions"
@@ -125,8 +144,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         />
       </div>
 
-      {/* Main Charts & Rankings */}
-      <AnalyticsCharts summary={summary} />
+      {/* Main Charts, Rankings, and Events Log */}
+      <AnalyticsCharts summary={summary} links={links} />
     </div>
   );
 };

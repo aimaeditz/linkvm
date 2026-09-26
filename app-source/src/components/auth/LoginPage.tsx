@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from '../shared/Logo';
-import { StorageService } from '../../lib/storage';
+import { AuthService } from '../../lib/storage';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
@@ -57,15 +57,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const res = StorageService.loginSync(email, password, rememberMe);
+    AuthService.login(email, password, rememberMe).then((res) => {
       setLoading(false);
       if (res.error) {
         setError(res.error);
         return;
       }
       handleSuccess();
-    }, 400);
+    });
   };
 
   const handleOAuth = (provider: 'google' | 'github') => {
@@ -74,7 +73,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
       const providerEmail = `${provider}-creator@linkvm.online`;
       const providerName = `${provider.charAt(0).toUpperCase() + provider.slice(1)} Creator`;
       const preferredUsername = `${provider}-creator`;
-      StorageService.loginWithOAuth(provider, providerEmail, providerName, preferredUsername);
+      AuthService.loginWithOAuth(provider, providerEmail, providerName, preferredUsername);
       setLoading(false);
       handleSuccess();
     }, 400);

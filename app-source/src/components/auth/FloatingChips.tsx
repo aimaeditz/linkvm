@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 interface ChipConfig {
-  Icon: React.ComponentType<any>;
+  Icon: React.ComponentType<{ className?: string }>;
   positionClass: string;
   delay: number;
   duration: number;

@@ -116,8 +116,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const isSocialsDirty = Object.keys(socialsDraft).some((key) => {
     if (key === 'id' || key === 'userId') return false;
-    const val1 = (socialsDraft as any)[key] || '';
-    const val2 = (socials as any)[key] || '';
+    const val1 = (socialsDraft as unknown as Record<string, string | null | undefined>)[key] || '';
+    const val2 = (socials as unknown as Record<string, string | null | undefined>)[key] || '';
     return val1 !== val2;
   });
 
@@ -219,8 +219,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         setSaveSuccess(false);
         if (setSaveStatus) setSaveStatus('idle');
       }, 2500);
-    } catch (err: any) {
-      const errMsg = err?.message || 'Failed to save changes. Please try again.';
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to save changes. Please try again.';
       setLocalError(errMsg);
       if (setSaveError) setSaveError(errMsg);
       if (setSaveStatus) setSaveStatus('error');
@@ -291,40 +291,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             Manage your credentials, alternative URLs, social channels, and data privacy.
           </p>
         </div>
-
-        {/* Global Save / Cancel Action Row */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            disabled={!isDirty || isSaving}
-            onClick={handleGlobalCancel}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer ${
-              (!isDirty || isSaving) && 'opacity-50 cursor-not-allowed'
-            }`}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={isSaveDisabled}
-            onClick={handleGlobalSave}
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-b from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 transition-all shadow-medium cursor-pointer ${
-              isSaveDisabled ? 'bg-slate-300 opacity-60 cursor-not-allowed from-slate-300 to-slate-300' : ''
-            }`}
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : saveSuccess ? (
-              <Check className="w-4 h-4 text-emerald-300" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>{isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Changes'}</span>
-          </button>
-        </div>
       </div>
 
-      {/* Tabs list (6 tabs, Header removed) */}
+      {/* Tabs list (6 tabs) */}
       <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-2xl overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -333,7 +302,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'profile' | 'socials' | 'account' | 'notifications' | 'privacy' | 'danger')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
                 isActive
                   ? 'bg-white text-slate-900 shadow-xs'

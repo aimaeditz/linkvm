@@ -58,7 +58,7 @@ export const SocialLinksForm: React.FC<SocialLinksFormProps> = ({
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'idle' | 'error'>('saved');
 
   // Debounced auto-save ref
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Define fields in the precise order requested
   const fields: { id: SocialFieldName; label: string; placeholder: string; icon: React.ReactNode }[] = [
@@ -83,7 +83,7 @@ export const SocialLinksForm: React.FC<SocialLinksFormProps> = ({
     let isAllValid = true;
 
     fields.forEach((field) => {
-      const val = (currentState as any)[field.id] || '';
+      const val = (currentState as unknown as Record<string, string | null | undefined>)[field.id] || '';
       if (val) {
         const validation = validateSocialLink(field.id, val);
         if (!validation.isValid) {
@@ -166,7 +166,7 @@ export const SocialLinksForm: React.FC<SocialLinksFormProps> = ({
   const fullWidthField = fields[12]; // website
 
   const renderField = (field: typeof fields[0]) => {
-    const val = (formData as any)[field.id] || '';
+    const val = (formData as unknown as Record<string, string | null | undefined>)[field.id] || '';
     const hasError = Boolean(errors[field.id]);
     const isValidAndFilled = val && !hasError;
 

@@ -20,7 +20,7 @@ interface LinkCardProps {
   onEdit: (link: LinkItem) => void;
   onDelete: (id: string) => void;
   onToggleVisibility: (id: string, visible: boolean) => void;
-  dragHandleProps?: Record<string, any>;
+  dragHandleProps?: Record<string, unknown>;
 }
 
 export const LinkCard: React.FC<LinkCardProps> = ({

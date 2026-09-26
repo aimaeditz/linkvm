@@ -118,7 +118,9 @@ export const FAQ_ITEMS = [
   },
 ];
 
-export function getThemeStyles(theme: any) {
+import { ThemeConfig, ThemePreset } from '../types';
+
+export function getThemeStyles(theme: Partial<ThemeConfig | ThemePreset> | null | undefined) {
   if (!theme) return { bgStyle: {}, buttonStyle: {}, cardStyle: {} };
   
   const signature = theme.signature || 'flat';

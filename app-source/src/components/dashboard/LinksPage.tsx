@@ -1,5 +1,22 @@
 import React, { useState } from 'react';
-import { Plus, Search, Link2 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Plus, Search, Link2, AlertTriangle, X, Trash2 } from 'lucide-react';
 import { User, LinkItem } from '../../types';
 import { StorageService } from '../../lib/storage';
 import { LinkCard } from './LinkCard';
@@ -7,6 +24,48 @@ import { LinkFormModal } from './LinkFormModal';
 import { ProfilePreview } from './ProfilePreview';
 import { MobilePreviewToggle } from './MobilePreviewToggle';
 import { EmptyState } from '../shared/EmptyState';
+
+interface SortableItemProps {
+  link: LinkItem;
+  onEdit: (link: LinkItem) => void;
+  onDelete: (id: string) => void;
+  onToggleVisibility: (id: string, visible: boolean) => void;
+}
+
+const SortableLinkItem: React.FC<SortableItemProps> = ({
+  link,
+  onEdit,
+  onDelete,
+  onToggleVisibility,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: link.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <LinkCard
+        link={link}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onToggleVisibility={onToggleVisibility}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+};
 
 interface LinksPageProps {
   user: User;
@@ -21,10 +80,35 @@ export const LinksPage: React.FC<LinksPageProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
+  const [deletingLinkId, setDeletingLinkId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'hidden'>('all');
 
   const theme = StorageService.getTheme();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = links.findIndex((item) => item.id === active.id);
+      const newIndex = links.findIndex((item) => item.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(links, oldIndex, newIndex);
+        StorageService.reorderLinks(reordered.map((l) => l.id));
+        onLinksChange();
+      }
+    }
+  };
 
   const handleCreateOrUpdate = (data: {
     title: string;
@@ -43,9 +127,12 @@ export const LinksPage: React.FC<LinksPageProps> = ({
     onLinksChange();
   };
 
-  const handleDelete = (id: string) => {
-    StorageService.deleteLink(id);
-    onLinksChange();
+  const confirmDelete = () => {
+    if (deletingLinkId) {
+      StorageService.deleteLink(deletingLinkId);
+      setDeletingLinkId(null);
+      onLinksChange();
+    }
   };
 
   const handleToggleVisibility = (id: string, visible: boolean) => {
@@ -62,6 +149,8 @@ export const LinksPage: React.FC<LinksPageProps> = ({
       l.url.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
+
+  const deletingLink = links.find((l) => l.id === deletingLinkId);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 w-full min-w-0">
@@ -96,7 +185,7 @@ export const LinksPage: React.FC<LinksPageProps> = ({
         </div>
       </div>
 
-      {/* Main Layout: Left Column = Links Controls (full width flexibility), Right Column = Sticky Narrow Phone Preview */}
+      {/* Main Layout: Left Column = Links Controls, Right Column = Sticky Narrow Phone Preview */}
       <div className="flex flex-col lg:flex-row gap-8 items-start w-full min-w-0">
         {/* Left Column: Link Controls */}
         <div className="flex-1 min-w-0 w-full space-y-4">
@@ -173,23 +262,36 @@ export const LinksPage: React.FC<LinksPageProps> = ({
                 No links matched your filter or search query.
               </div>
             ) : (
-              filteredLinks.map((link) => (
-                <LinkCard
-                  key={link.id}
-                  link={link}
-                  onEdit={(item) => {
-                    setEditingLink(item);
-                    setModalOpen(true);
-                  }}
-                  onDelete={handleDelete}
-                  onToggleVisibility={handleToggleVisibility}
-                />
-              ))
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={filteredLinks.map((l) => l.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {filteredLinks.map((link) => (
+                      <SortableLinkItem
+                        key={link.id}
+                        link={link}
+                        onEdit={(item) => {
+                          setEditingLink(item);
+                          setModalOpen(true);
+                        }}
+                        onDelete={(id) => setDeletingLinkId(id)}
+                        onToggleVisibility={handleToggleVisibility}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </div>
 
-        {/* Right Column: Desktop Sticky Phone Preview (w-[320px] on lg, w-[340px] on xl) */}
+        {/* Right Column: Desktop Sticky Phone Preview */}
         <div className="hidden lg:block w-[320px] xl:w-[340px] shrink-0 sticky top-24">
           <ProfilePreview user={user} links={links} theme={theme} />
         </div>
@@ -208,6 +310,55 @@ export const LinksPage: React.FC<LinksPageProps> = ({
         onSave={handleCreateOrUpdate}
         initialData={editingLink}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deletingLinkId && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
+                <AlertTriangle className="w-5 h-5" />
+                <span>Delete Link</span>
+              </div>
+              <button
+                onClick={() => setDeletingLinkId(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete{' '}
+              <strong className="text-slate-900 font-bold">
+                &ldquo;{deletingLink?.title || 'this link'}&rdquo;
+              </strong>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingLinkId(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

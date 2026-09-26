@@ -1,3 +1,4 @@
+import { User } from '../types';
 import { getSiteUrl } from './site';
 
 export function generateReferralCode(username: string, userId: string): string {
@@ -17,10 +18,10 @@ export function buildReferralUrl(code: string): string {
   return `${siteUrl}/r/${code}`;
 }
 
-export async function resolveReferralCode(code: string) {
+export async function resolveReferralCode(code: string): Promise<User | null> {
   if (typeof window !== 'undefined') {
-    const users = JSON.parse(localStorage.getItem('linkvm_users_table') || '[]');
-    return users.find((u: any) => u.referralCode === code || u.username.toLowerCase() === code.split('-')[0]) || null;
+    const users: (User & { referralCode?: string })[] = JSON.parse(localStorage.getItem('linkvm_users_table') || '[]');
+    return users.find((u) => u.referralCode === code || u.username.toLowerCase() === code.split('-')[0]) || null;
   }
   return null;
 }

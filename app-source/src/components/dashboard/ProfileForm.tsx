@@ -39,7 +39,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
 }) => {
   const activeLinks = links || StorageService.getLinks();
   const activeTheme = theme || StorageService.getTheme();
-  const debounceTimer = useRef<any>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleUsernameChange = (val: string) => {
     const clean = val.toLowerCase().replace(/[^a-z0-9_-]/g, '').trim();
