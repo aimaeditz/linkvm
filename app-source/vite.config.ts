@@ -43,8 +43,19 @@ function preserveRootBuildPlugin(): Plugin {
         }
       }
 
-      // Safe clean of root: cleans previous build artifacts (assets/, old html/manifest), strictly preserving source code & metadata & config
+      // PERMANENT DEPLOY HYGIENE RULE:
+      // Safe clean of root: fully empties previous build artifacts (root assets/, old html/manifest)
+      // before writing new hashed bundles, strictly preserving source code, metadata, CNAME, & configs.
       const rootDir = path.resolve(__dirname, '..');
+      const rootAssetsDir = path.join(rootDir, 'assets');
+      if (fs.existsSync(rootAssetsDir)) {
+        try {
+          fs.rmSync(rootAssetsDir, { recursive: true, force: true });
+        } catch {
+          // ignore
+        }
+      }
+
       const preserved = new Set([
         '.git',
         '.github',
@@ -79,9 +90,20 @@ function preserveRootBuildPlugin(): Plugin {
       }
     },
     closeBundle() {
-      // Ensure dist contents are copied to rootDir for Vercel Output Directory '.'
+      // Ensure dist contents are copied to rootDir for Vercel / GitHub Pages Output Directory '.'
       const rootDir = path.resolve(__dirname, '..');
       const distDir = path.resolve(__dirname, 'dist');
+      
+      // Explicitly wipe stale root assets before copy to guarantee exactly one bundle pair
+      const rootAssetsDir = path.join(rootDir, 'assets');
+      if (fs.existsSync(rootAssetsDir)) {
+        try {
+          fs.rmSync(rootAssetsDir, { recursive: true, force: true });
+        } catch {
+          // ignore
+        }
+      }
+
       if (fs.existsSync(distDir)) {
         fs.cpSync(distDir, rootDir, { recursive: true });
       }
