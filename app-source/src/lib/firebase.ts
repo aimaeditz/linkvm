@@ -15,21 +15,25 @@ const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID;
 const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
-if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
-  const errMsg =
-    '[LinkVM Error] Missing required Firebase configuration in environment variables. VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID, and VITE_FIREBASE_APP_ID are required.';
-  console.error(errMsg);
-  throw new Error(errMsg);
+export const isFirebaseConfigured = Boolean(
+  apiKey && authDomain && projectId && storageBucket && messagingSenderId && appId
+);
+
+if (!isFirebaseConfigured) {
+  console.warn(
+    '[LinkVM Warning] Missing or incomplete Firebase configuration in environment variables. ' +
+    'The application will run with local/demo state.'
+  );
 }
 
 const firebaseConfig = {
-  apiKey,
-  authDomain,
-  projectId,
-  storageBucket,
-  messagingSenderId,
-  appId,
-  measurementId,
+  apiKey: apiKey || 'AIzaSyDemoPlaceholderKey1234567890abcdef',
+  authDomain: authDomain || 'linkvm-demo.firebaseapp.com',
+  projectId: projectId || 'linkvm-demo',
+  storageBucket: storageBucket || 'linkvm-demo.appspot.com',
+  messagingSenderId: messagingSenderId || '123456789012',
+  appId: appId || '1:123456789012:web:demo1234567890abcdef',
+  measurementId: measurementId || undefined,
 };
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -99,6 +103,7 @@ export function handleFirestoreError(
 }
 
 export async function testConnection() {
+  if (!isFirebaseConfigured) return;
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
@@ -106,9 +111,11 @@ export async function testConnection() {
       error instanceof Error &&
       error.message.includes('the client is offline')
     ) {
-      console.error('Please check your Firebase configuration.');
+      console.warn('Firebase connection offline or unconfigured.');
     }
   }
 }
 
-testConnection();
+if (isFirebaseConfigured) {
+  testConnection();
+}

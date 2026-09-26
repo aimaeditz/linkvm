@@ -15,6 +15,7 @@ import {
   googleProvider,
   handleFirestoreError,
   OperationType,
+  isFirebaseConfigured,
 } from './firebase';
 import {
   signInWithPopup,
@@ -46,6 +47,141 @@ let cachedTheme: ThemeConfig | null = null;
 let cachedSocials: SocialLinks | null = null;
 let cachedAnalytics: AnalyticsEvent[] = [];
 
+export const DEMO_USER: User = {
+  id: 'demo_user',
+  email: 'creator@linkvm.online',
+  name: 'Alex Rivera',
+  displayName: 'Alex Rivera',
+  photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+  username: 'alexrivera',
+  bio: 'Digital creator & product designer. Exploring minimalist aesthetics and open web tech.',
+  sharePattern: '{username}',
+  invitesSent: 3,
+  invitesAccepted: 2,
+  referralCode: 'alexrivera-7890',
+  googleSub: 'demo_user',
+  googleEmail: 'creator@linkvm.online',
+  googleName: 'Alex Rivera',
+  googlePicture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+  notifications: {
+    weeklySummary: true,
+    securityAlerts: true,
+  },
+  privacy: {
+    searchIndexing: true,
+    anonymousAnalytics: false,
+  },
+  hasSharedAt: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+export const DEMO_LINKS: LinkItem[] = [
+  {
+    id: 'link-1',
+    userId: 'demo_user',
+    title: 'My Portfolio & Case Studies',
+    url: 'https://example.com/portfolio',
+    icon: 'Globe',
+    visible: true,
+    openInNew: true,
+    position: 0,
+    clicks: 142,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'link-2',
+    userId: 'demo_user',
+    title: 'YouTube Channel — Tech & Design',
+    url: 'https://youtube.com',
+    icon: 'Youtube',
+    visible: true,
+    openInNew: true,
+    position: 1,
+    clicks: 98,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'link-3',
+    userId: 'demo_user',
+    title: 'Weekly Curated Newsletter',
+    url: 'https://substack.com',
+    icon: 'Mail',
+    visible: true,
+    openInNew: true,
+    position: 2,
+    clicks: 64,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'link-4',
+    userId: 'demo_user',
+    title: 'Open Source GitHub Repos',
+    url: 'https://github.com',
+    icon: 'Github',
+    visible: true,
+    openInNew: true,
+    position: 3,
+    clicks: 45,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+function initLocalDemoState() {
+  if (typeof window === 'undefined') return;
+  try {
+    const rawUser = localStorage.getItem('linkvm_demo_user');
+    if (rawUser) {
+      cachedCurrentUser = JSON.parse(rawUser);
+    }
+    const rawLinks = localStorage.getItem('linkvm_demo_links');
+    if (rawLinks) {
+      cachedLinks = JSON.parse(rawLinks);
+    } else if (cachedCurrentUser) {
+      cachedLinks = DEMO_LINKS;
+    }
+    const rawTheme = localStorage.getItem('linkvm_demo_theme');
+    if (rawTheme) {
+      cachedTheme = JSON.parse(rawTheme);
+    }
+    const rawSocials = localStorage.getItem('linkvm_demo_socials');
+    if (rawSocials) {
+      cachedSocials = JSON.parse(rawSocials);
+    }
+  } catch (e) {
+    console.warn('Failed to load demo state:', e);
+  }
+}
+
+function saveLocalDemoState() {
+  if (typeof window === 'undefined' || isFirebaseConfigured) return;
+  try {
+    if (cachedCurrentUser) {
+      localStorage.setItem('linkvm_demo_user', JSON.stringify(cachedCurrentUser));
+    } else {
+      localStorage.removeItem('linkvm_demo_user');
+    }
+    localStorage.setItem('linkvm_demo_links', JSON.stringify(cachedLinks));
+    if (cachedTheme) {
+      localStorage.setItem('linkvm_demo_theme', JSON.stringify(cachedTheme));
+    }
+    if (cachedSocials) {
+      localStorage.setItem('linkvm_demo_socials', JSON.stringify(cachedSocials));
+    }
+  } catch (e) {
+    console.warn('Failed to save demo state:', e);
+  }
+}
+
+if (!isFirebaseConfigured) {
+  initLocalDemoState();
+}
+
 type StateChangeListener = () => void;
 const listeners: Set<StateChangeListener> = new Set();
 
@@ -65,28 +201,37 @@ function generateId(): string {
 }
 
 // Global Auth State Listener
-onAuthStateChanged(auth, async (firebaseUser) => {
-  if (firebaseUser) {
-    try {
-      await syncUserFromFirebase(firebaseUser);
-    } catch (err) {
-      console.error('Error syncing user on auth change:', err);
+if (isFirebaseConfigured) {
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      try {
+        await syncUserFromFirebase(firebaseUser);
+      } catch (err) {
+        console.error('Error syncing user on auth change:', err);
+      }
+    } else {
+      cachedCurrentUser = null;
+      cachedLinks = [];
+      cachedTheme = null;
+      cachedSocials = null;
+      cachedAnalytics = [];
+      notifyListeners();
     }
-  } else {
-    cachedCurrentUser = null;
-    cachedLinks = [];
-    cachedTheme = null;
-    cachedSocials = null;
-    cachedAnalytics = [];
-    notifyListeners();
-  }
-});
+  });
+}
 
 export async function checkUsernameAvailableInFirestore(rawUsername: string): Promise<boolean> {
   const clean = slugify(rawUsername);
   if (!clean || clean.length < 3 || clean.length > 30) return false;
   const val = validateUsername(clean);
   if (!val.valid) return false;
+
+  if (!isFirebaseConfigured) {
+    if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
+      return true;
+    }
+    return true;
+  }
 
   try {
     const unameDocRef = doc(db, 'usernames', clean);
@@ -280,6 +425,29 @@ export class AuthService {
   }
 
   static async loginWithGoogle(): Promise<{ user?: User; error?: string }> {
+    if (!isFirebaseConfigured) {
+      if (!cachedCurrentUser) {
+        cachedCurrentUser = DEMO_USER;
+        if (cachedLinks.length === 0) {
+          cachedLinks = DEMO_LINKS;
+        }
+        if (!cachedTheme) {
+          cachedTheme = presetToConfig(THEME_PRESETS[0], DEMO_USER.id);
+        }
+        if (!cachedSocials) {
+          cachedSocials = {
+            id: 'default',
+            userId: DEMO_USER.id,
+            twitter: 'https://x.com/alexrivera',
+            github: 'https://github.com/alexrivera',
+            linkedin: 'https://linkedin.com/in/alexrivera',
+          };
+        }
+        saveLocalDemoState();
+      }
+      notifyListeners();
+      return { user: cachedCurrentUser };
+    }
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = await syncUserFromFirebase(result.user);
@@ -299,12 +467,19 @@ export class AuthService {
   }
 
   static async logout(): Promise<void> {
-    await signOut(auth);
+    if (isFirebaseConfigured) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.warn('Sign-out error:', err);
+      }
+    }
     cachedCurrentUser = null;
     cachedLinks = [];
     cachedTheme = null;
     cachedSocials = null;
     cachedAnalytics = [];
+    saveLocalDemoState();
     notifyListeners();
   }
 
@@ -333,6 +508,30 @@ export class AuthService {
   }
 
   static async updateProfile(partial: Partial<User>): Promise<{ user?: User; error?: string }> {
+    if (!isFirebaseConfigured) {
+      if (!cachedCurrentUser) return { error: 'Unauthorized' };
+      if (partial.username && partial.username !== cachedCurrentUser.username) {
+        const cleanUsername = slugify(partial.username);
+        const val = validateUsername(cleanUsername);
+        if (!val.valid) return { error: val.error || 'Invalid username.' };
+        cachedCurrentUser = {
+          ...cachedCurrentUser,
+          ...partial,
+          username: cleanUsername,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        cachedCurrentUser = {
+          ...cachedCurrentUser,
+          ...partial,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      saveLocalDemoState();
+      notifyListeners();
+      return { user: cachedCurrentUser };
+    }
+
     const current = auth.currentUser;
     if (!current) return { error: 'Unauthorized' };
 
@@ -407,6 +606,17 @@ export class AuthService {
   }
 
   static async deleteAccount(): Promise<void> {
+    if (!isFirebaseConfigured) {
+      cachedCurrentUser = null;
+      cachedLinks = [];
+      cachedTheme = null;
+      cachedSocials = null;
+      cachedAnalytics = [];
+      saveLocalDemoState();
+      notifyListeners();
+      return;
+    }
+
     const current = auth.currentUser;
     if (!current) return;
     const uid = current.uid;
@@ -471,6 +681,16 @@ export class StorageService {
   static async findUserByUsernameAsync(username: string): Promise<User | null> {
     const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
     if (!clean) return null;
+
+    if (!isFirebaseConfigured) {
+      if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
+        return cachedCurrentUser;
+      }
+      if (DEMO_USER.username.toLowerCase() === clean) {
+        return DEMO_USER;
+      }
+      return null;
+    }
 
     try {
       // 1. Look up username in the unique usernames registry
@@ -554,6 +774,16 @@ export class StorageService {
   }
 
   static async getLinksForUserAsync(userId: string): Promise<LinkItem[]> {
+    if (!isFirebaseConfigured) {
+      if (cachedCurrentUser && cachedCurrentUser.id === userId) {
+        return cachedLinks.filter((l) => l.visible);
+      }
+      if (userId === DEMO_USER.id) {
+        return (cachedLinks.length > 0 ? cachedLinks : DEMO_LINKS).filter((l) => l.visible);
+      }
+      return [];
+    }
+
     try {
       const snap = await getDocs(collection(db, 'users', userId, 'links'));
       const links: LinkItem[] = [];
@@ -590,6 +820,13 @@ export class StorageService {
       updatedAt: now,
     };
 
+    if (!isFirebaseConfigured) {
+      cachedLinks = [...cachedLinks, newLink];
+      saveLocalDemoState();
+      notifyListeners();
+      return { link: newLink };
+    }
+
     try {
       await setDoc(doc(db, 'users', uid, 'links', newId), newLink);
       cachedLinks = [...cachedLinks, newLink];
@@ -618,6 +855,7 @@ export class StorageService {
       updatedAt: now,
     };
     cachedLinks = [...cachedLinks, newLink];
+    saveLocalDemoState();
     notifyListeners();
     return { link: newLink };
   }
@@ -631,6 +869,14 @@ export class StorageService {
     if (!target) return null;
 
     const updated = { ...target, ...partial, updatedAt: now };
+
+    if (!isFirebaseConfigured) {
+      cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
+      saveLocalDemoState();
+      notifyListeners();
+      return updated;
+    }
+
     try {
       await setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true });
       cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
@@ -648,6 +894,7 @@ export class StorageService {
     if (!target) return null;
     const updated = { ...target, ...partial, updatedAt: new Date().toISOString() };
     cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
+    saveLocalDemoState();
     notifyListeners();
     return updated;
   }
@@ -655,6 +902,16 @@ export class StorageService {
   static async deleteLinkAsync(id: string): Promise<boolean> {
     const uid = AuthService.getSessionUserId();
     if (!uid) return false;
+
+    if (!isFirebaseConfigured) {
+      cachedLinks = cachedLinks.filter((l) => l.id !== id).map((item, index) => ({
+        ...item,
+        position: index,
+      }));
+      saveLocalDemoState();
+      notifyListeners();
+      return true;
+    }
 
     try {
       await deleteDoc(doc(db, 'users', uid, 'links', id));
@@ -676,6 +933,7 @@ export class StorageService {
       ...item,
       position: index,
     }));
+    saveLocalDemoState();
     notifyListeners();
     return true;
   }
@@ -694,6 +952,13 @@ export class StorageService {
         reordered.push({ ...item, position: index, updatedAt: now });
       }
     });
+
+    if (!isFirebaseConfigured) {
+      cachedLinks = reordered;
+      saveLocalDemoState();
+      notifyListeners();
+      return reordered;
+    }
 
     try {
       const batch = writeBatch(db);
@@ -724,6 +989,7 @@ export class StorageService {
     });
 
     cachedLinks = reordered;
+    saveLocalDemoState();
     notifyListeners();
     return reordered;
   }
@@ -742,6 +1008,13 @@ export class StorageService {
   }
 
   static async getThemeForUserAsync(userId: string): Promise<ThemeConfig> {
+    if (!isFirebaseConfigured) {
+      if (cachedTheme && (!userId || userId === cachedCurrentUser?.id || userId === DEMO_USER.id)) {
+        return cachedTheme;
+      }
+      return presetToConfig(THEME_PRESETS[0], userId);
+    }
+
     try {
       const snap = await getDoc(doc(db, 'users', userId, 'theme', 'default'));
       if (snap.exists()) {
@@ -772,6 +1045,13 @@ export class StorageService {
       updatedAt: new Date().toISOString(),
     };
 
+    if (!isFirebaseConfigured) {
+      cachedTheme = updated;
+      saveLocalDemoState();
+      notifyListeners();
+      return updated;
+    }
+
     if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'theme', 'default'), updated);
@@ -799,6 +1079,7 @@ export class StorageService {
     };
 
     cachedTheme = updated;
+    saveLocalDemoState();
     notifyListeners();
     return updated;
   }
@@ -817,6 +1098,13 @@ export class StorageService {
   }
 
   static async getSocialsForUserAsync(userId: string): Promise<SocialLinks> {
+    if (!isFirebaseConfigured) {
+      if (cachedSocials && (!userId || userId === cachedCurrentUser?.id || userId === DEMO_USER.id)) {
+        return cachedSocials;
+      }
+      return { id: 'default', userId };
+    }
+
     try {
       const snap = await getDoc(doc(db, 'users', userId, 'socials', 'default'));
       if (snap.exists()) {
@@ -845,6 +1133,13 @@ export class StorageService {
       userId: uid || current.userId,
     };
 
+    if (!isFirebaseConfigured) {
+      cachedSocials = updated;
+      saveLocalDemoState();
+      notifyListeners();
+      return updated;
+    }
+
     if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'socials', 'default'), updated);
@@ -870,6 +1165,7 @@ export class StorageService {
     };
 
     cachedSocials = updated;
+    saveLocalDemoState();
     notifyListeners();
     return updated;
   }
@@ -919,6 +1215,20 @@ export class StorageService {
       userAgent,
       createdAt: new Date().toISOString(),
     };
+
+    if (!isFirebaseConfigured) {
+      if (userId === cachedCurrentUser?.id || userId === DEMO_USER.id) {
+        cachedAnalytics.push(eventRecord);
+        if (event === 'click' && meta?.linkId) {
+          cachedLinks = cachedLinks.map((l) =>
+            l.id === meta.linkId ? { ...l, clicks: (l.clicks || 0) + 1 } : l
+          );
+        }
+        saveLocalDemoState();
+        notifyListeners();
+      }
+      return;
+    }
 
     try {
       await setDoc(doc(db, 'users', userId, 'analytics', eventId), eventRecord);
