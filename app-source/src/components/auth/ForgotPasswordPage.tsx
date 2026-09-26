@@ -9,6 +9,7 @@ import {
   UNAUTHORIZED_PREVIEW_NOTICE,
   getFriendlyAuthErrorMessage,
 } from '../../lib/auth-host';
+import { isFirebaseConfigured, firebaseMissingError } from '../../lib/firebase';
 
 export interface ForgotPasswordPageProps {
   onNavigate?: (route: string) => void;
@@ -97,6 +98,13 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
               Enter your email address to receive a password reset link.
             </p>
           </div>
+
+          {!isFirebaseConfigured && (
+            <div className="w-full mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start gap-2.5">
+              <AlertCircle size={16} className="shrink-0 text-rose-600 mt-0.5" />
+              <span>{firebaseMissingError}</span>
+            </div>
+          )}
 
           {!isHostAllowed && (
             <div className="w-full mb-5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/70 text-amber-800 text-xs font-semibold flex items-start gap-2.5">

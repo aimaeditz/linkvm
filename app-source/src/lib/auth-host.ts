@@ -9,8 +9,9 @@ export function isAuthHostSupported(_hostname: string = typeof window !== 'undef
   return true;
 }
 
-export const UNAUTHORIZED_PREVIEW_NOTICE =
-  'Sign-in is temporarily unavailable on this preview URL. Please open linkvm.online to sign in.';
+export const UNAUTHORIZED_DOMAIN_NOTICE =
+  'Sign-in is only authorized on linkvm.online. Please visit https://linkvm.online to sign in.';
+export const UNAUTHORIZED_PREVIEW_NOTICE = UNAUTHORIZED_DOMAIN_NOTICE;
 
 export function getFriendlyAuthErrorMessage(error: unknown): string {
   if (!error) return 'Something went wrong. Please try again.';

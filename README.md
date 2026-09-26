@@ -148,7 +148,7 @@ To customize the Google Sign-In branding:
 1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **OAuth consent screen**.
 2. Set **App name** to `LinkVM`.
 3. Set **User support email** and **Developer contact information** (e.g. `aimaeditz.info@gmail.com`).
-4. Add authorized domains: `linkvm.online`, `www.linkvm.online`, `aimaeditz.github.io`, `linkvm.vercel.app`.
+4. Add authorized domains: `linkvm.online`, `www.linkvm.online`.
 5. Verify domain ownership for `linkvm.online` in Google Search Console.
 
 ---

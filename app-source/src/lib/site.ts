@@ -1,5 +1,7 @@
 // Site helper for environment-driven domain and URL resolution
-// Centralized domain management with linkvm.online as canonical domain.
+// Centralized domain management with https://linkvm.online/ as canonical domain.
+
+export const CANONICAL_SITE_URL = 'https://linkvm.online';
 
 export function getSiteUrl(): string {
   // 1. Vite environment variable (primary for client-side Vite SPA build)
@@ -18,12 +20,8 @@ export function getSiteUrl(): string {
     return processUrl.trim().replace(/\/+$/, '');
   }
 
-  if (typeof window !== 'undefined' && window.location.origin && !window.location.hostname.includes('linkvm.online')) {
-    return window.location.origin;
-  }
-
-  // Canonical production domain default (strictly linkvm.online)
-  return 'https://linkvm.online';
+  // Canonical single source of truth domain strictly linkvm.online
+  return CANONICAL_SITE_URL;
 }
 
 export function getSiteDomain(): string {

@@ -16,6 +16,7 @@ import {
   handleFirestoreError,
   OperationType,
   isFirebaseConfigured,
+  firebaseMissingError,
 } from './firebase';
 import {
   signInWithPopup,
@@ -40,167 +41,22 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 
-export interface StoredUserAccount extends User {}
-
-export const LOCAL_STORAGE_KEY_USER = 'linkvm_local_user';
-export const LOCAL_STORAGE_KEY_LINKS = 'linkvm_local_links';
-export const LOCAL_STORAGE_KEY_THEME = 'linkvm_local_theme';
-export const LOCAL_STORAGE_KEY_SOCIALS = 'linkvm_local_socials';
-export const LOCAL_STORAGE_KEY_ANALYTICS = 'linkvm_local_analytics';
-export const LOCAL_STORAGE_KEY_USERS = 'linkvm_local_users';
-
-export function getStored<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const val = localStorage.getItem(key);
-    return val ? (JSON.parse(val) as T) : fallback;
-  } catch {
-    return fallback;
+function assertFirebaseConfigured(): void {
+  if (!isFirebaseConfigured) {
+    const errorMsg =
+      firebaseMissingError ||
+      'Firebase is not configured. Missing required environment variables: VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID, VITE_FIREBASE_APP_ID.';
+    console.error(`[Firebase Configuration Error] ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 }
 
-export function setStored<T>(key: string, val: T): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-  } catch {
-    // quota
-  }
-}
-
-export const DEMO_USER: User = {
-  id: 'usr_demo_creator',
-  name: 'Alex Rivera',
-  displayName: 'Alex Rivera',
-  email: 'alex@linkvm.online',
-  username: 'alex',
-  bio: 'Digital Creator & Product Designer | Sharing resources, tools & tutorials',
-  photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&crop=faces',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&crop=faces',
-  sharePattern: '{username}',
-  invitesSent: 4,
-  invitesAccepted: 2,
-  referralCode: 'alex-4921',
-  googleSub: 'usr_demo_creator',
-  googleEmail: 'alex@linkvm.online',
-  googleName: 'Alex Rivera',
-  googlePicture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&crop=faces',
-  notifications: {
-    weeklySummary: true,
-    securityAlerts: true,
-  },
-  privacy: {
-    searchIndexing: true,
-    anonymousAnalytics: false,
-  },
-  hasSharedAt: null,
-  createdAt: '2025-01-01T00:00:00.000Z',
-  updatedAt: '2025-01-01T00:00:00.000Z',
-};
-
-export const DEMO_LINKS: LinkItem[] = [
-  {
-    id: 'demo-link-1',
-    userId: 'usr_demo_creator',
-    title: 'Watch Latest YouTube Tutorial',
-    url: 'https://youtube.com',
-    icon: 'youtube',
-    clicks: 1420,
-    visible: true,
-    openInNew: true,
-    position: 0,
-    animation: 'pulse',
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'demo-link-2',
-    userId: 'usr_demo_creator',
-    title: 'Download Free Figma UI Kit',
-    url: 'https://figma.com',
-    icon: 'figma',
-    clicks: 2854,
-    visible: true,
-    openInNew: true,
-    position: 1,
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'demo-link-3',
-    userId: 'usr_demo_creator',
-    title: 'Join Creator Community on Discord',
-    url: 'https://discord.gg',
-    icon: 'discord',
-    clicks: 980,
-    visible: true,
-    openInNew: true,
-    position: 2,
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'demo-link-4',
-    userId: 'usr_demo_creator',
-    title: 'Read My Weekly Newsletter on Substack',
-    url: 'https://substack.com',
-    icon: 'mail',
-    clicks: 642,
-    visible: true,
-    openInNew: true,
-    position: 3,
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-  },
-];
-
-export function createLocalUser(name: string, email: string): User {
-  const cleanName = name.trim() || 'Creator';
-  const localPart = email.split('@')[0] || 'user';
-  let baseUsername = slugify(localPart).slice(0, 16);
-  if (baseUsername.length < 3) baseUsername = `user_${baseUsername}`;
-  const randSuffix = Math.floor(100 + Math.random() * 900);
-  const username = `${baseUsername}${randSuffix}`;
-  const now = new Date().toISOString();
-  const id = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-  return {
-    id,
-    email: email.trim(),
-    displayName: cleanName,
-    name: cleanName,
-    photoURL: '',
-    avatarUrl: '',
-    username,
-    bio: '',
-    sharePattern: '{username}',
-    invitesSent: 0,
-    invitesAccepted: 0,
-    referralCode: `${username}-${Math.floor(1000 + Math.random() * 9000)}`,
-    googleSub: id,
-    googleEmail: email.trim(),
-    googleName: cleanName,
-    googlePicture: '',
-    notifications: {
-      weeklySummary: true,
-      securityAlerts: true,
-    },
-    privacy: {
-      searchIndexing: true,
-      anonymousAnalytics: false,
-    },
-    hasSharedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-// In-memory cache for synchronous render compatibility, backed by localStorage
-let cachedCurrentUser: User | null = getStored<User | null>(LOCAL_STORAGE_KEY_USER, null);
-let cachedLinks: LinkItem[] = getStored<LinkItem[]>(LOCAL_STORAGE_KEY_LINKS, []);
-let cachedTheme: ThemeConfig | null = getStored<ThemeConfig | null>(LOCAL_STORAGE_KEY_THEME, null);
-let cachedSocials: SocialLinks | null = getStored<SocialLinks | null>(LOCAL_STORAGE_KEY_SOCIALS, null);
-let cachedAnalytics: AnalyticsEvent[] = getStored<AnalyticsEvent[]>(LOCAL_STORAGE_KEY_ANALYTICS, []);
+// In-memory application state
+let cachedCurrentUser: User | null = null;
+let cachedLinks: LinkItem[] = [];
+let cachedTheme: ThemeConfig | null = null;
+let cachedSocials: SocialLinks | null = null;
+let cachedAnalytics: AnalyticsEvent[] = [];
 
 type StateChangeListener = () => void;
 const listeners: Set<StateChangeListener> = new Set();
@@ -220,29 +76,55 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
 }
 
-// Global Auth State Listener
+// Auth Ready tracking
+let _authReady = false;
+let _authReadyResolve: (() => void) | null = null;
+export const authReadyPromise = new Promise<void>((resolve) => {
+  if (_authReady) {
+    resolve();
+  } else {
+    _authReadyResolve = resolve;
+  }
+});
+
+export function isAuthReady(): boolean {
+  return _authReady;
+}
+
+function markAuthReady() {
+  _authReady = true;
+  if (_authReadyResolve) {
+    _authReadyResolve();
+    _authReadyResolve = null;
+  }
+}
+
+function clearLocalCache() {
+  cachedCurrentUser = null;
+  cachedLinks = [];
+  cachedTheme = null;
+  cachedSocials = null;
+  cachedAnalytics = [];
+}
+
+// Global Firebase Auth State Listener
 if (isFirebaseConfigured) {
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
       try {
         await syncUserFromFirebase(firebaseUser);
       } catch (err) {
-        console.error('Error syncing user on auth change:', err);
+        console.error('Error syncing user on auth state change:', err);
       }
     } else {
-      cachedCurrentUser = null;
-      cachedLinks = [];
-      cachedTheme = null;
-      cachedSocials = null;
-      cachedAnalytics = [];
-      setStored(LOCAL_STORAGE_KEY_USER, null);
-      setStored(LOCAL_STORAGE_KEY_LINKS, []);
-      setStored(LOCAL_STORAGE_KEY_THEME, null);
-      setStored(LOCAL_STORAGE_KEY_SOCIALS, null);
-      setStored(LOCAL_STORAGE_KEY_ANALYTICS, []);
+      clearLocalCache();
       notifyListeners();
     }
+    markAuthReady();
   });
+} else {
+  // If not configured, mark auth ready immediately so app displays configuration error
+  markAuthReady();
 }
 
 export async function checkUsernameAvailableInFirestore(rawUsername: string): Promise<boolean> {
@@ -251,38 +133,26 @@ export async function checkUsernameAvailableInFirestore(rawUsername: string): Pr
   const val = validateUsername(clean);
   if (!val.valid) return false;
 
-  if (clean === 'alex' || clean === 'demo') {
-    if (auth.currentUser?.uid === DEMO_USER.id || cachedCurrentUser?.id === DEMO_USER.id) return true;
-    return false;
-  }
-
-  const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-  const existing = localUsers.find((u) => u.username.toLowerCase() === clean);
-  if (existing) {
-    if (cachedCurrentUser && existing.id === cachedCurrentUser.id) return true;
-    return false;
-  }
-
-  if (isFirebaseConfigured) {
-    try {
-      const unameDocRef = doc(db, 'usernames', clean);
-      const snap = await getDoc(unameDocRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (auth.currentUser && data.uid === auth.currentUser.uid) {
-          return true;
-        }
-        return false;
+  assertFirebaseConfigured();
+  try {
+    const unameDocRef = doc(db, 'usernames', clean);
+    const snap = await getDoc(unameDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (auth.currentUser && data.uid === auth.currentUser.uid) {
+        return true;
       }
-      return true;
-    } catch {
-      return true;
+      return false;
     }
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `usernames/${clean}`);
+    return false;
   }
-  return true;
 }
 
 export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackName?: string): Promise<User> {
+  assertFirebaseConfigured();
   const uid = firebaseUser.uid;
   const userRef = doc(db, 'users', uid);
   const now = new Date().toISOString();
@@ -332,11 +202,14 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   } else {
-    // Generate initial unique username
-    let chosenUsername = AuthService.generateUniqueUsername(firebaseUser.email || 'user');
+    // Generate unique username for new user
+    let chosenUsername = AuthService.generateUniqueUsername(firebaseUser.email || fallbackName || 'creator');
     let isAvail = await checkUsernameAvailableInFirestore(chosenUsername);
-    if (!isAvail) {
-      chosenUsername = `${chosenUsername}${Math.floor(100 + Math.random() * 900)}`;
+    let attempts = 0;
+    while (!isAvail && attempts < 10) {
+      attempts++;
+      chosenUsername = `${AuthService.generateUniqueUsername(firebaseUser.email || 'creator')}${Math.floor(100 + Math.random() * 900)}`;
+      isAvail = await checkUsernameAvailableInFirestore(chosenUsername);
     }
 
     const nameVal = fallbackName || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator');
@@ -379,12 +252,29 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `users/${uid}`);
+      throw err;
+    }
+
+    // Set initial default theme
+    try {
+      const initialTheme = presetToConfig(THEME_PRESETS[0], uid);
+      await setDoc(doc(db, 'users', uid, 'theme', 'default'), initialTheme);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/theme/default`);
+    }
+
+    // Set initial default socials
+    try {
+      const initialSocials = { id: 'default', userId: uid };
+      await setDoc(doc(db, 'users', uid, 'socials', 'default'), initialSocials);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/socials/default`);
     }
   }
 
   cachedCurrentUser = userData;
 
-  // Load user links
+  // Load user links from real Firestore
   try {
     const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
     const loadedLinks: LinkItem[] = [];
@@ -395,9 +285,10 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
     cachedLinks = loadedLinks;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, `users/${uid}/links`);
+    cachedLinks = [];
   }
 
-  // Load user theme
+  // Load user theme from real Firestore
   try {
     const themeSnap = await getDoc(doc(db, 'users', uid, 'theme', 'default'));
     if (themeSnap.exists()) {
@@ -407,9 +298,10 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, `users/${uid}/theme/default`);
+    cachedTheme = presetToConfig(THEME_PRESETS[0], uid);
   }
 
-  // Load user socials
+  // Load user socials from real Firestore
   try {
     const socialsSnap = await getDoc(doc(db, 'users', uid, 'socials', 'default'));
     if (socialsSnap.exists()) {
@@ -419,9 +311,10 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, `users/${uid}/socials/default`);
+    cachedSocials = { id: 'default', userId: uid };
   }
 
-  // Load analytics
+  // Load analytics from real Firestore
   try {
     const analyticsSnap = await getDocs(collection(db, 'users', uid, 'analytics'));
     const loadedEvents: AnalyticsEvent[] = [];
@@ -431,6 +324,7 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackN
     cachedAnalytics = loadedEvents;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, `users/${uid}/analytics`);
+    cachedAnalytics = [];
   }
 
   notifyListeners();
@@ -447,184 +341,64 @@ export class AuthService {
   }
 
   static async loginWithEmail(email: string, password: string): Promise<User> {
+    assertFirebaseConfigured();
     const trimmedEmail = email.trim();
-    if (isFirebaseConfigured) {
-      try {
-        const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-        const user = await syncUserFromFirebase(result.user);
-        return user;
-      } catch (err) {
-        const code = (err as { code?: string })?.code || '';
-        if (
-          code === 'auth/wrong-password' ||
-          code === 'auth/user-not-found' ||
-          code === 'auth/invalid-credential'
-        ) {
-          throw err;
-        }
-        console.warn('Firebase login unavailable, using local authentication:', err);
-      }
-    }
-
-    const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-    let user = localUsers.find((u) => u.email.toLowerCase() === trimmedEmail.toLowerCase());
-    if (!user) {
-      if (trimmedEmail.toLowerCase() === DEMO_USER.email.toLowerCase()) {
-        user = DEMO_USER;
-      } else {
-        const name = trimmedEmail.split('@')[0] || 'Creator';
-        user = createLocalUser(name, trimmedEmail);
-        localUsers.push(user);
-        setStored(LOCAL_STORAGE_KEY_USERS, localUsers);
-      }
-    }
-
-    cachedCurrentUser = user;
-    setStored(LOCAL_STORAGE_KEY_USER, user);
-    const userLinks = getStored<LinkItem[]>(
-      `${LOCAL_STORAGE_KEY_LINKS}_${user.id}`,
-      user.id === DEMO_USER.id ? DEMO_LINKS : []
-    );
-    cachedLinks = userLinks.length > 0 ? userLinks : DEMO_LINKS.map((l) => ({ ...l, id: generateId(), userId: user!.id }));
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${user.id}`, cachedLinks);
-
-    cachedTheme = getStored<ThemeConfig | null>(
-      `${LOCAL_STORAGE_KEY_THEME}_${user.id}`,
-      presetToConfig(THEME_PRESETS[0], user.id)
-    );
-    setStored(LOCAL_STORAGE_KEY_THEME, cachedTheme);
-
-    cachedSocials = getStored<SocialLinks | null>(
-      `${LOCAL_STORAGE_KEY_SOCIALS}_${user.id}`,
-      { id: 'default', userId: user.id }
-    );
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, cachedSocials);
-
-    notifyListeners();
+    const result = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+    const user = await syncUserFromFirebase(result.user);
     return user;
   }
 
   static async signupWithEmail(name: string, email: string, password: string): Promise<User> {
+    assertFirebaseConfigured();
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
 
-    if (isFirebaseConfigured) {
+    const result = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+    if (trimmedName) {
       try {
-        const result = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
-        if (trimmedName) {
-          try {
-            await updateFirebaseProfile(result.user, { displayName: trimmedName });
-          } catch {
-            // non-blocking
-          }
-        }
-        const user = await syncUserFromFirebase(result.user, trimmedName);
-        return user;
-      } catch (err) {
-        const code = (err as { code?: string })?.code || '';
-        if (code === 'auth/email-already-in-use') {
-          throw err;
-        }
-        console.warn('Firebase signup unavailable, creating local account:', err);
+        await updateFirebaseProfile(result.user, { displayName: trimmedName });
+      } catch {
+        // non-blocking
       }
     }
-
-    const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-    const existing = localUsers.find((u) => u.email.toLowerCase() === trimmedEmail.toLowerCase());
-    if (existing) {
-      const err = new Error('An account with this email already exists. Please sign in instead.');
-      (err as { code?: string }).code = 'auth/email-already-in-use';
-      throw err;
-    }
-
-    const user = createLocalUser(trimmedName, trimmedEmail);
-    localUsers.push(user);
-    setStored(LOCAL_STORAGE_KEY_USERS, localUsers);
-
-    cachedCurrentUser = user;
-    setStored(LOCAL_STORAGE_KEY_USER, user);
-
-    const initialLinks = DEMO_LINKS.map((l) => ({ ...l, id: generateId(), userId: user.id }));
-    cachedLinks = initialLinks;
-    setStored(LOCAL_STORAGE_KEY_LINKS, initialLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${user.id}`, initialLinks);
-
-    const initialTheme = presetToConfig(THEME_PRESETS[0], user.id);
-    cachedTheme = initialTheme;
-    setStored(LOCAL_STORAGE_KEY_THEME, initialTheme);
-    setStored(`${LOCAL_STORAGE_KEY_THEME}_${user.id}`, initialTheme);
-
-    const initialSocials = { id: 'default', userId: user.id };
-    cachedSocials = initialSocials;
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, initialSocials);
-    setStored(`${LOCAL_STORAGE_KEY_SOCIALS}_${user.id}`, initialSocials);
-
-    notifyListeners();
+    const user = await syncUserFromFirebase(result.user, trimmedName);
     return user;
   }
 
   static async sendPasswordReset(email: string): Promise<void> {
-    if (isFirebaseConfigured) {
-      try {
-        await sendPasswordResetEmail(auth, email.trim());
-        return;
-      } catch (err) {
-        console.warn('Firebase password reset error:', err);
-      }
-    }
+    assertFirebaseConfigured();
+    await sendPasswordResetEmail(auth, email.trim());
   }
 
   static async loginWithGoogle(): Promise<{ user?: User; error?: string }> {
-    if (isFirebaseConfigured) {
-      try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const user = await syncUserFromFirebase(result.user);
-        return { user };
-      } catch (err) {
-        console.warn('Google Sign-In popup error, activating demo creator session:', err);
-      }
-    }
-
-    const user = DEMO_USER;
-    cachedCurrentUser = user;
-    setStored(LOCAL_STORAGE_KEY_USER, user);
-    cachedLinks = DEMO_LINKS;
-    setStored(LOCAL_STORAGE_KEY_LINKS, DEMO_LINKS);
-    cachedTheme = presetToConfig(THEME_PRESETS[0], user.id);
-    setStored(LOCAL_STORAGE_KEY_THEME, cachedTheme);
-    cachedSocials = { id: 'default', userId: user.id, instagram: 'alexrivera', youtube: 'alexrivera', twitter: 'alexrivera' };
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, cachedSocials);
-    notifyListeners();
+    assertFirebaseConfigured();
+    googleProvider.setCustomParameters({
+      prompt: 'select_account',
+    });
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = await syncUserFromFirebase(result.user);
     return { user };
   }
 
   static async loginWithGoogleFirebase(): Promise<User> {
-    const res = await AuthService.loginWithGoogle();
-    if (res.error || !res.user) {
-      throw new Error(res.error || 'Google sign-in failed');
-    }
-    return res.user;
+    assertFirebaseConfigured();
+    googleProvider.setCustomParameters({
+      prompt: 'select_account',
+    });
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = await syncUserFromFirebase(result.user);
+    return user;
   }
 
   static async logout(): Promise<void> {
-    if (isFirebaseConfigured) {
+    if (isFirebaseConfigured && auth.currentUser) {
       try {
         await signOut(auth);
       } catch (err) {
         console.warn('Sign-out error:', err);
       }
     }
-    cachedCurrentUser = null;
-    cachedLinks = [];
-    cachedTheme = null;
-    cachedSocials = null;
-    cachedAnalytics = [];
-    setStored(LOCAL_STORAGE_KEY_USER, null);
-    setStored(LOCAL_STORAGE_KEY_LINKS, []);
-    setStored(LOCAL_STORAGE_KEY_THEME, null);
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, null);
-    setStored(LOCAL_STORAGE_KEY_ANALYTICS, []);
+    clearLocalCache();
     notifyListeners();
   }
 
@@ -633,7 +407,7 @@ export class AuthService {
   }
 
   static async getCurrentUser(): Promise<User | null> {
-    if (auth.currentUser && isFirebaseConfigured) {
+    if (isFirebaseConfigured && auth.currentUser) {
       if (!cachedCurrentUser || cachedCurrentUser.id !== auth.currentUser.uid) {
         await syncUserFromFirebase(auth.currentUser);
       }
@@ -645,18 +419,18 @@ export class AuthService {
     return checkUsernameAvailableInFirestore(username);
   }
 
-  static generateUniqueUsername(email: string): string {
-    const localPart = email.split('@')[0] || 'user';
-    let base = slugify(localPart).slice(0, 16);
-    if (base.length < 3) base = `user_${base}`;
+  static generateUniqueUsername(emailOrName: string): string {
+    const localPart = emailOrName.includes('@') ? emailOrName.split('@')[0] : emailOrName;
+    let base = slugify(localPart || 'creator').slice(0, 16);
+    if (base.length < 3) base = `creator_${base}`;
     return base;
   }
 
   static async updateProfile(partial: Partial<User>): Promise<{ user?: User; error?: string }> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
-    if (!uid && !cachedCurrentUser) return { error: 'Unauthorized' };
+    if (!uid) return { error: 'Unauthorized' };
 
-    const currentUid = uid || cachedCurrentUser!.id;
     const now = new Date().toISOString();
 
     if (partial.username && cachedCurrentUser && partial.username !== cachedCurrentUser.username) {
@@ -671,24 +445,23 @@ export class AuthService {
         return { error: 'This username is already taken or reserved.' };
       }
 
-      if (isFirebaseConfigured && auth.currentUser) {
-        try {
-          await runTransaction(db, async (transaction) => {
-            const oldUnameRef = doc(db, 'usernames', cachedCurrentUser!.username);
-            const newUnameRef = doc(db, 'usernames', cleanUsername);
-            const userRef = doc(db, 'users', currentUid);
+      try {
+        await runTransaction(db, async (transaction) => {
+          const oldUnameRef = doc(db, 'usernames', cachedCurrentUser!.username);
+          const newUnameRef = doc(db, 'usernames', cleanUsername);
+          const userRef = doc(db, 'users', uid);
 
-            transaction.delete(oldUnameRef);
-            transaction.set(newUnameRef, { uid: currentUid, createdAt: now });
-            transaction.update(userRef, {
-              ...partial,
-              username: cleanUsername,
-              updatedAt: now,
-            });
+          transaction.delete(oldUnameRef);
+          transaction.set(newUnameRef, { uid, createdAt: now });
+          transaction.update(userRef, {
+            ...partial,
+            username: cleanUsername,
+            updatedAt: now,
           });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.UPDATE, `users/${currentUid}`);
-        }
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+        return { error: 'Failed to update username. Please try again.' };
       }
 
       if (cachedCurrentUser) {
@@ -698,20 +471,14 @@ export class AuthService {
           username: cleanUsername,
           updatedAt: now,
         };
-        setStored(LOCAL_STORAGE_KEY_USER, cachedCurrentUser);
       }
-
-      const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-      const updatedList = localUsers.map((u) => (u.id === currentUid ? { ...u, ...partial, username: cleanUsername, updatedAt: now } : u));
-      setStored(LOCAL_STORAGE_KEY_USERS, updatedList);
-
       notifyListeners();
       return { user: cachedCurrentUser! };
     }
 
     const updatedUser: User = {
       ...(cachedCurrentUser || {
-        id: currentUid,
+        id: uid,
         email: '',
         name: 'Creator',
         username: 'user',
@@ -722,78 +489,65 @@ export class AuthService {
       updatedAt: now,
     };
 
-    if (isFirebaseConfigured && auth.currentUser) {
-      try {
-        await setDoc(doc(db, 'users', currentUid), updatedUser, { merge: true });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${currentUid}`);
-      }
+    try {
+      await setDoc(doc(db, 'users', uid), updatedUser, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+      return { error: 'Failed to save profile changes.' };
     }
 
     cachedCurrentUser = updatedUser;
-    setStored(LOCAL_STORAGE_KEY_USER, updatedUser);
-
-    const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-    const updatedList = localUsers.map((u) => (u.id === currentUid ? updatedUser : u));
-    setStored(LOCAL_STORAGE_KEY_USERS, updatedList);
-
     notifyListeners();
     return { user: updatedUser };
   }
 
   static async deleteAccount(): Promise<void> {
+    assertFirebaseConfigured();
     const current = auth.currentUser;
     const uid = current?.uid || cachedCurrentUser?.id;
-    if (!uid) return;
-
-    if (isFirebaseConfigured && current) {
-      try {
-        const batch = writeBatch(db);
-
-        // Delete username doc
-        if (cachedCurrentUser?.username) {
-          batch.delete(doc(db, 'usernames', cachedCurrentUser.username));
-        }
-
-        // Links
-        const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
-        linksSnap.forEach((d) => batch.delete(d.ref));
-
-        // Theme
-        batch.delete(doc(db, 'users', uid, 'theme', 'default'));
-
-        // Socials
-        batch.delete(doc(db, 'users', uid, 'socials', 'default'));
-
-        // Analytics
-        const analyticsSnap = await getDocs(collection(db, 'users', uid, 'analytics'));
-        analyticsSnap.forEach((d) => batch.delete(d.ref));
-
-        // User document
-        batch.delete(doc(db, 'users', uid));
-
-        await batch.commit();
-        await deleteUser(current);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, `users/${uid}`);
-      }
+    if (!uid || !current) {
+      throw new Error('Not authenticated');
     }
 
-    cachedCurrentUser = null;
-    cachedLinks = [];
-    cachedTheme = null;
-    cachedSocials = null;
-    cachedAnalytics = [];
-    setStored(LOCAL_STORAGE_KEY_USER, null);
-    setStored(LOCAL_STORAGE_KEY_LINKS, []);
-    setStored(LOCAL_STORAGE_KEY_THEME, null);
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, null);
-    setStored(LOCAL_STORAGE_KEY_ANALYTICS, []);
+    try {
+      const batch = writeBatch(db);
+
+      if (cachedCurrentUser?.username) {
+        batch.delete(doc(db, 'usernames', cachedCurrentUser.username));
+      }
+
+      const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
+      linksSnap.forEach((d) => batch.delete(d.ref));
+
+      batch.delete(doc(db, 'users', uid, 'theme', 'default'));
+      batch.delete(doc(db, 'users', uid, 'socials', 'default'));
+
+      const analyticsSnap = await getDocs(collection(db, 'users', uid, 'analytics'));
+      analyticsSnap.forEach((d) => batch.delete(d.ref));
+
+      batch.delete(doc(db, 'users', uid));
+
+      await batch.commit();
+      await deleteUser(current);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${uid}`);
+      throw err;
+    }
+
+    clearLocalCache();
     notifyListeners();
   }
 }
 
 export class StorageService {
+  static isAuthReady(): boolean {
+    return isAuthReady();
+  }
+
+  static get authReadyPromise(): Promise<void> {
+    return authReadyPromise;
+  }
+
   static isSessionActive(): boolean {
     return AuthService.isSessionActive();
   }
@@ -811,59 +565,45 @@ export class StorageService {
   }
 
   static async findUserByUsernameAsync(username: string): Promise<User | null> {
-    const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
+    const clean = slugify(username);
     if (!clean) return null;
-
-    if (clean === 'alex' || clean === 'demo') {
-      return DEMO_USER;
-    }
 
     if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
       return cachedCurrentUser;
     }
 
-    const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-    const localFound = localUsers.find((u) => u.username.toLowerCase() === clean);
-    if (localFound) return localFound;
-
-    if (isFirebaseConfigured) {
-      try {
-        const unameDocRef = doc(db, 'usernames', clean);
-        const unameSnap = await getDoc(unameDocRef);
-        if (unameSnap.exists()) {
-          const uid = unameSnap.data()?.uid;
-          if (uid) {
-            const userDocRef = doc(db, 'users', uid);
-            const userSnap = await getDoc(userDocRef);
-            if (userSnap.exists()) {
-              return userSnap.data() as User;
-            }
+    assertFirebaseConfigured();
+    try {
+      const unameDocRef = doc(db, 'usernames', clean);
+      const unameSnap = await getDoc(unameDocRef);
+      if (unameSnap.exists()) {
+        const uid = unameSnap.data()?.uid;
+        if (uid) {
+          const userDocRef = doc(db, 'users', uid);
+          const userSnap = await getDoc(userDocRef);
+          if (userSnap.exists()) {
+            return userSnap.data() as User;
           }
         }
-
-        const directUserSnap = await getDoc(doc(db, 'users', clean));
-        if (directUserSnap.exists()) {
-          return directUserSnap.data() as User;
-        }
-      } catch (err) {
-        console.warn('Could not find user by username in Firestore:', clean, err);
       }
+
+      // Direct fallback lookup by uid/id
+      const directUserSnap = await getDoc(doc(db, 'users', clean));
+      if (directUserSnap.exists()) {
+        return directUserSnap.data() as User;
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `usernames/${clean}`);
     }
 
     return null;
   }
 
   static findUserByUsername(username: string): User | null {
-    const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
-    if (clean === 'alex' || clean === 'demo') {
-      return DEMO_USER;
-    }
+    const clean = slugify(username);
     if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
       return cachedCurrentUser;
     }
-    const localUsers = getStored<User[]>(LOCAL_STORAGE_KEY_USERS, []);
-    const localFound = localUsers.find((u) => u.username.toLowerCase() === clean);
-    if (localFound) return localFound;
     return null;
   }
 
@@ -895,7 +635,6 @@ export class StorageService {
     AuthService.updateProfile(partial);
     if (cachedCurrentUser) {
       cachedCurrentUser = { ...cachedCurrentUser, ...partial, updatedAt: new Date().toISOString() };
-      setStored(LOCAL_STORAGE_KEY_USER, cachedCurrentUser);
       notifyListeners();
     }
     return cachedCurrentUser;
@@ -910,47 +649,28 @@ export class StorageService {
     if (!userId || userId === cachedCurrentUser?.id) {
       return cachedLinks;
     }
-    if (userId === DEMO_USER.id) {
-      return DEMO_LINKS;
-    }
-    const userLinks = getStored<LinkItem[]>(`${LOCAL_STORAGE_KEY_LINKS}_${userId}`, []);
-    return userLinks;
+    return [];
   }
 
   static async getLinksForUserAsync(userId: string): Promise<LinkItem[]> {
-    if (userId === DEMO_USER.id) {
-      return DEMO_LINKS;
-    }
     if (cachedCurrentUser && cachedCurrentUser.id === userId) {
       return cachedLinks.filter((l) => l.visible).sort((a, b) => a.position - b.position);
     }
-    const localLinks = getStored<LinkItem[]>(`${LOCAL_STORAGE_KEY_LINKS}_${userId}`, []);
-    if (localLinks.length > 0) {
-      return localLinks.filter((l) => l.visible).sort((a, b) => a.position - b.position);
-    }
-    if (isFirebaseConfigured) {
-      try {
-        const snap = await getDocs(collection(db, 'users', userId, 'links'));
-        const links: LinkItem[] = [];
-        snap.forEach((d) => links.push(d.data() as LinkItem));
-        return links.filter((l) => l.visible).sort((a, b) => a.position - b.position);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, `users/${userId}/links`);
-      }
+    assertFirebaseConfigured();
+    try {
+      const snap = await getDocs(collection(db, 'users', userId, 'links'));
+      const links: LinkItem[] = [];
+      snap.forEach((d) => links.push(d.data() as LinkItem));
+      return links.filter((l) => l.visible).sort((a, b) => a.position - b.position);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, `users/${userId}/links`);
     }
     return [];
   }
 
   static getLinksForUser(userId: string): LinkItem[] {
-    if (userId === DEMO_USER.id) {
-      return DEMO_LINKS;
-    }
     if (userId === cachedCurrentUser?.id) {
       return cachedLinks.filter((l) => l.visible);
-    }
-    const localLinks = getStored<LinkItem[]>(`${LOCAL_STORAGE_KEY_LINKS}_${userId}`, []);
-    if (localLinks.length > 0) {
-      return localLinks.filter((l) => l.visible).sort((a, b) => a.position - b.position);
     }
     return [];
   }
@@ -958,6 +678,7 @@ export class StorageService {
   static async addLinkAsync(
     link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>
   ): Promise<{ link?: LinkItem; error?: string }> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return { error: 'Not authenticated' };
 
@@ -974,16 +695,13 @@ export class StorageService {
     };
 
     cachedLinks = [...cachedLinks, newLink];
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      try {
-        await setDoc(doc(db, 'users', uid, 'links', newId), newLink);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
-      }
+    try {
+      await setDoc(doc(db, 'users', uid, 'links', newId), newLink);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
+      return { error: 'Failed to save link to database' };
     }
 
     return { link: newLink };
@@ -992,6 +710,7 @@ export class StorageService {
   static addLink(
     link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>
   ): { link?: LinkItem; error?: string } {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return { error: 'Not authenticated' };
     const newId = generateId();
@@ -1006,20 +725,17 @@ export class StorageService {
       updatedAt: now,
     };
     cachedLinks = [...cachedLinks, newLink];
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      setDoc(doc(db, 'users', uid, 'links', newId), newLink).catch((err) => {
-        handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
-      });
-    }
+    setDoc(doc(db, 'users', uid, 'links', newId), newLink).catch((err) => {
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
+    });
 
     return { link: newLink };
   }
 
   static async updateLinkAsync(id: string, partial: Partial<LinkItem>): Promise<LinkItem | null> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return null;
 
@@ -1029,42 +745,36 @@ export class StorageService {
 
     const updated = { ...target, ...partial, updatedAt: now };
     cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      try {
-        await setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
-      }
+    try {
+      await setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
     }
 
     return updated;
   }
 
   static updateLink(id: string, partial: Partial<LinkItem>): LinkItem | null {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return null;
     const target = cachedLinks.find((l) => l.id === id);
     if (!target) return null;
     const updated = { ...target, ...partial, updatedAt: new Date().toISOString() };
     cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true }).catch((err) => {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
-      });
-    }
+    setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true }).catch((err) => {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
+    });
 
     return updated;
   }
 
   static async deleteLinkAsync(id: string): Promise<boolean> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return false;
 
@@ -1072,22 +782,20 @@ export class StorageService {
       ...item,
       position: index,
     }));
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      try {
-        await deleteDoc(doc(db, 'users', uid, 'links', id));
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
-      }
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'links', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
+      return false;
     }
 
     return true;
   }
 
   static deleteLink(id: string): boolean {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return false;
 
@@ -1095,20 +803,17 @@ export class StorageService {
       ...item,
       position: index,
     }));
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      deleteDoc(doc(db, 'users', uid, 'links', id)).catch((err) => {
-        handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
-      });
-    }
+    deleteDoc(doc(db, 'users', uid, 'links', id)).catch((err) => {
+      handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
+    });
 
     return true;
   }
 
   static async reorderLinksAsync(orderedIds: string[]): Promise<LinkItem[]> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     if (!uid) return [];
 
@@ -1124,20 +829,16 @@ export class StorageService {
     });
 
     cachedLinks = reordered;
-    setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
-    setStored(`${LOCAL_STORAGE_KEY_LINKS}_${uid}`, cachedLinks);
     notifyListeners();
 
-    if (isFirebaseConfigured) {
-      try {
-        const batch = writeBatch(db);
-        reordered.forEach((item) => {
-          batch.set(doc(db, 'users', uid, 'links', item.id), item);
-        });
-        await batch.commit();
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/links`);
-      }
+    try {
+      const batch = writeBatch(db);
+      reordered.forEach((item) => {
+        batch.set(doc(db, 'users', uid, 'links', item.id), item);
+      });
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${uid}/links`);
     }
 
     return reordered;
@@ -1162,41 +863,30 @@ export class StorageService {
   }
 
   static async getThemeForUserAsync(userId: string): Promise<ThemeConfig> {
-    if (userId === DEMO_USER.id) {
-      return presetToConfig(THEME_PRESETS[0], DEMO_USER.id);
-    }
     if (cachedCurrentUser && cachedCurrentUser.id === userId && cachedTheme) {
       return cachedTheme;
     }
-    const stored = getStored<ThemeConfig | null>(`${LOCAL_STORAGE_KEY_THEME}_${userId}`, null);
-    if (stored) return stored;
-
-    if (isFirebaseConfigured) {
-      try {
-        const snap = await getDoc(doc(db, 'users', userId, 'theme', 'default'));
-        if (snap.exists()) {
-          return snap.data() as ThemeConfig;
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `users/${userId}/theme/default`);
+    assertFirebaseConfigured();
+    try {
+      const snap = await getDoc(doc(db, 'users', userId, 'theme', 'default'));
+      if (snap.exists()) {
+        return snap.data() as ThemeConfig;
       }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `users/${userId}/theme/default`);
     }
     return presetToConfig(THEME_PRESETS[0], userId);
   }
 
   static getThemeForUser(userId: string): ThemeConfig {
-    if (userId === DEMO_USER.id) {
-      return presetToConfig(THEME_PRESETS[0], DEMO_USER.id);
-    }
     if (userId === cachedCurrentUser?.id && cachedTheme) {
       return cachedTheme;
     }
-    const stored = getStored<ThemeConfig | null>(`${LOCAL_STORAGE_KEY_THEME}_${userId}`, null);
-    if (stored) return stored;
     return presetToConfig(THEME_PRESETS[0], userId);
   }
 
   static async updateThemeAsync(partial: Partial<ThemeConfig>): Promise<ThemeConfig> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     const fallback = presetToConfig(THEME_PRESETS[0], uid || '');
     const current = cachedTheme || fallback;
@@ -1209,13 +899,9 @@ export class StorageService {
     };
 
     cachedTheme = updated;
-    setStored(LOCAL_STORAGE_KEY_THEME, updated);
-    if (uid) {
-      setStored(`${LOCAL_STORAGE_KEY_THEME}_${uid}`, updated);
-    }
     notifyListeners();
 
-    if (isFirebaseConfigured && uid) {
+    if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'theme', 'default'), updated);
       } catch (err) {
@@ -1227,6 +913,7 @@ export class StorageService {
   }
 
   static updateTheme(partial: Partial<ThemeConfig>): ThemeConfig {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     const fallback = presetToConfig(THEME_PRESETS[0], uid || '');
     const current = cachedTheme || fallback;
@@ -1239,13 +926,9 @@ export class StorageService {
     };
 
     cachedTheme = updated;
-    setStored(LOCAL_STORAGE_KEY_THEME, updated);
-    if (uid) {
-      setStored(`${LOCAL_STORAGE_KEY_THEME}_${uid}`, updated);
-    }
     notifyListeners();
 
-    if (isFirebaseConfigured && uid) {
+    if (uid) {
       setDoc(doc(db, 'users', uid, 'theme', 'default'), updated).catch((err) => {
         handleFirestoreError(err, OperationType.WRITE, `users/${uid}/theme/default`);
       });
@@ -1268,41 +951,30 @@ export class StorageService {
   }
 
   static async getSocialsForUserAsync(userId: string): Promise<SocialLinks> {
-    if (userId === DEMO_USER.id) {
-      return { id: 'default', userId: DEMO_USER.id, instagram: 'alexrivera', youtube: 'alexrivera', twitter: 'alexrivera', github: 'alexrivera' };
-    }
     if (cachedCurrentUser && cachedCurrentUser.id === userId && cachedSocials) {
       return cachedSocials;
     }
-    const stored = getStored<SocialLinks | null>(`${LOCAL_STORAGE_KEY_SOCIALS}_${userId}`, null);
-    if (stored) return stored;
-
-    if (isFirebaseConfigured) {
-      try {
-        const snap = await getDoc(doc(db, 'users', userId, 'socials', 'default'));
-        if (snap.exists()) {
-          return snap.data() as SocialLinks;
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `users/${userId}/socials/default`);
+    assertFirebaseConfigured();
+    try {
+      const snap = await getDoc(doc(db, 'users', userId, 'socials', 'default'));
+      if (snap.exists()) {
+        return snap.data() as SocialLinks;
       }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `users/${userId}/socials/default`);
     }
     return { id: 'default', userId };
   }
 
   static getSocialsForUser(userId: string): SocialLinks {
-    if (userId === DEMO_USER.id) {
-      return { id: 'default', userId: DEMO_USER.id, instagram: 'alexrivera', youtube: 'alexrivera', twitter: 'alexrivera', github: 'alexrivera' };
-    }
     if (userId === cachedCurrentUser?.id && cachedSocials) {
       return cachedSocials;
     }
-    const stored = getStored<SocialLinks | null>(`${LOCAL_STORAGE_KEY_SOCIALS}_${userId}`, null);
-    if (stored) return stored;
     return { id: 'default', userId };
   }
 
   static async updateSocialsAsync(partial: Partial<SocialLinks>): Promise<SocialLinks> {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     const current = cachedSocials || { id: 'default', userId: uid || '' };
 
@@ -1313,13 +985,9 @@ export class StorageService {
     };
 
     cachedSocials = updated;
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, updated);
-    if (uid) {
-      setStored(`${LOCAL_STORAGE_KEY_SOCIALS}_${uid}`, updated);
-    }
     notifyListeners();
 
-    if (isFirebaseConfigured && uid) {
+    if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'socials', 'default'), updated);
       } catch (err) {
@@ -1331,6 +999,7 @@ export class StorageService {
   }
 
   static updateSocials(partial: Partial<SocialLinks>): SocialLinks {
+    assertFirebaseConfigured();
     const uid = AuthService.getSessionUserId();
     const current = cachedSocials || { id: 'default', userId: uid || '' };
 
@@ -1341,13 +1010,9 @@ export class StorageService {
     };
 
     cachedSocials = updated;
-    setStored(LOCAL_STORAGE_KEY_SOCIALS, updated);
-    if (uid) {
-      setStored(`${LOCAL_STORAGE_KEY_SOCIALS}_${uid}`, updated);
-    }
     notifyListeners();
 
-    if (isFirebaseConfigured && uid) {
+    if (uid) {
       setDoc(doc(db, 'users', uid, 'socials', 'default'), updated).catch((err) => {
         handleFirestoreError(err, OperationType.WRITE, `users/${uid}/socials/default`);
       });
@@ -1373,7 +1038,7 @@ export class StorageService {
     event: 'view' | 'click',
     meta?: { linkId?: string; referrer?: string }
   ): Promise<void> {
-    if (!userId) return;
+    if (!userId || !isFirebaseConfigured) return;
 
     const eventId = generateId();
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -1404,34 +1069,30 @@ export class StorageService {
 
     if (userId === cachedCurrentUser?.id) {
       cachedAnalytics = [...cachedAnalytics, eventRecord];
-      setStored(LOCAL_STORAGE_KEY_ANALYTICS, cachedAnalytics);
       if (event === 'click' && meta?.linkId) {
         cachedLinks = cachedLinks.map((l) =>
           l.id === meta.linkId ? { ...l, clicks: (l.clicks || 0) + 1 } : l
         );
-        setStored(LOCAL_STORAGE_KEY_LINKS, cachedLinks);
       }
       notifyListeners();
     }
 
-    if (isFirebaseConfigured) {
-      try {
-        await setDoc(doc(db, 'users', userId, 'analytics', eventId), eventRecord);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, `users/${userId}/analytics/${eventId}`);
-      }
+    try {
+      await setDoc(doc(db, 'users', userId, 'analytics', eventId), eventRecord);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${userId}/analytics/${eventId}`);
+    }
 
-      if (event === 'click' && meta?.linkId) {
-        try {
-          const linkRef = doc(db, 'users', userId, 'links', meta.linkId);
-          const linkSnap = await getDoc(linkRef);
-          if (linkSnap.exists()) {
-            const lData = linkSnap.data() as LinkItem;
-            await updateDoc(linkRef, { clicks: (lData.clicks || 0) + 1 });
-          }
-        } catch {
-          // non-blocking
+    if (event === 'click' && meta?.linkId) {
+      try {
+        const linkRef = doc(db, 'users', userId, 'links', meta.linkId);
+        const linkSnap = await getDoc(linkRef);
+        if (linkSnap.exists()) {
+          const lData = linkSnap.data() as LinkItem;
+          await updateDoc(linkRef, { clicks: (lData.clicks || 0) + 1 });
         }
+      } catch {
+        // non-blocking
       }
     }
   }

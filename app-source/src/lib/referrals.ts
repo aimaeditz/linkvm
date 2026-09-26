@@ -1,5 +1,7 @@
 import { User } from '../types';
 import { getSiteUrl } from './site';
+import { db, isFirebaseConfigured } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function generateReferralCode(username: string, userId: string): string {
   const cleanUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'user';
@@ -19,9 +21,23 @@ export function buildReferralUrl(code: string): string {
 }
 
 export async function resolveReferralCode(code: string): Promise<User | null> {
-  if (typeof window !== 'undefined') {
-    const users: (User & { referralCode?: string })[] = JSON.parse(localStorage.getItem('linkvm_users_table') || '[]');
-    return users.find((u) => u.referralCode === code || u.username.toLowerCase() === code.split('-')[0]) || null;
+  if (!code || !isFirebaseConfigured) return null;
+  const usernamePart = code.split('-')[0]?.toLowerCase();
+  if (!usernamePart) return null;
+
+  try {
+    const unameDoc = await getDoc(doc(db, 'usernames', usernamePart));
+    if (unameDoc.exists()) {
+      const uid = unameDoc.data()?.uid;
+      if (uid) {
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        if (userDoc.exists()) {
+          return userDoc.data() as User;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to resolve referral code from Firestore:', err);
   }
   return null;
 }

@@ -23,21 +23,27 @@ if (!storageBucket) missingVars.push('VITE_FIREBASE_STORAGE_BUCKET');
 if (!messagingSenderId) missingVars.push('VITE_FIREBASE_MESSAGING_SENDER_ID');
 if (!appId) missingVars.push('VITE_FIREBASE_APP_ID');
 
+export const missingFirebaseVars = missingVars;
 export const isFirebaseConfigured = missingVars.length === 0;
+export const firebaseMissingError =
+  missingVars.length > 0
+    ? `Firebase is not configured. Missing required environment variables: ${missingVars.join(', ')}. Please configure these in your environment (Vercel / .env).`
+    : null;
 
 if (!isFirebaseConfigured) {
-  console.info(
-    'Firebase environment variables not set; running in local storage / demo fallback mode.'
+  console.warn(
+    `[Firebase Notice] ${firebaseMissingError}\nSilently falling back to demo/local mode is disabled. Real Firebase configuration is required.`
   );
 }
 
+// Config strictly populated from real environment variables
 const firebaseConfig = {
-  apiKey: apiKey || 'AIzaSyMockKeyForDevEnvironment12345678',
-  authDomain: authDomain || 'linkvm-preview.firebaseapp.com',
-  projectId: projectId || 'linkvm-preview',
-  storageBucket: storageBucket || 'linkvm-preview.appspot.com',
-  messagingSenderId: messagingSenderId || '123456789012',
-  appId: appId || '1:123456789012:web:1234567890abcdef',
+  apiKey: apiKey || 'unconfigured-api-key',
+  authDomain: authDomain || 'unconfigured-auth-domain',
+  projectId: projectId || 'unconfigured-project-id',
+  storageBucket: storageBucket || 'unconfigured-storage-bucket',
+  messagingSenderId: messagingSenderId || 'unconfigured-sender-id',
+  appId: appId || 'unconfigured-app-id',
   measurementId: measurementId || undefined,
 };
 
@@ -45,13 +51,15 @@ export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Set browser local persistence so authentication state survives page reloads
+// Set browser local persistence so real Firebase auth survives page reloads
 if (isFirebaseConfigured) {
   setPersistence(auth, browserLocalPersistence).catch((err) => {
     console.warn('Failed to set auth persistence:', err);
   });
 }
 
+// Google Auth Provider setup with prompt: 'select_account'
+// This ensures Chrome always displays the account chooser instead of auto-signing in
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',

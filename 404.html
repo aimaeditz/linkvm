@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>LinkVM</title>
+    <script>
+      (function () {
+        if (window.location.hostname === 'aimaeditz.github.io') {
+          var targetPath = window.location.pathname.replace(/^\/linkvm/, '');
+          window.location.replace('https://linkvm.online' + (targetPath || '/') + window.location.search + window.location.hash);
+          return;
+        }
+        var l = window.location;
+        l.replace(
+          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          '/?/' +
+          l.pathname.slice(1)
+            .replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+        );
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

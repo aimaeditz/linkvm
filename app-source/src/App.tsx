@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, LinkItem, ThemeConfig, SocialLinks, AnalyticsEvent } from './types';
 import { StorageService, subscribeToStore } from './lib/storage';
+import { isFirebaseConfigured, firebaseMissingError } from './lib/firebase';
+import { AlertTriangle } from 'lucide-react';
+import { Spinner } from './components/shared/Loader';
 
 // Landing Page Components
 import { Navbar } from './components/landing/Navbar';
@@ -46,6 +49,7 @@ export default function App() {
   const [route, setRoute] = useState<string>('landing');
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isAuthInitializing, setIsAuthInitializing] = useState(!StorageService.isAuthReady());
 
   // App Data State (tied to real session and storage)
   const [currentUser, setCurrentUser] = useState<User | null>(StorageService.getCurrentUser());
@@ -182,6 +186,10 @@ export default function App() {
 
     // Dashboard route guard - enforce signed-in user
     if (firstSegment === 'dashboard') {
+      if (!StorageService.isAuthReady()) {
+        await StorageService.authReadyPromise;
+      }
+
       if (!StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/login'));
         setRoute('login');
@@ -275,6 +283,12 @@ export default function App() {
     if (ref) {
       localStorage.setItem('linkvm_ref_code', ref);
     }
+
+    StorageService.authReadyPromise.then(() => {
+      setIsAuthInitializing(false);
+      refreshAllState();
+      resolveRouteAndLoad();
+    });
 
     resolveRouteAndLoad();
 
@@ -440,6 +454,15 @@ export default function App() {
   }
 
   if (route === 'dashboard') {
+    if (isAuthInitializing) {
+      return (
+        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-3">
+          <Spinner size="lg" />
+          <p className="text-xs font-semibold text-slate-500">Loading your LinkVM workspace…</p>
+        </div>
+      );
+    }
+
     if (!currentUser) {
       window.history.replaceState(null, '', getAppPath('/login'));
       setRoute('login');
@@ -556,6 +579,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-white text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      {!isFirebaseConfigured && (
+        <div className="w-full bg-rose-600 text-white px-4 py-2.5 text-xs font-bold text-center flex items-center justify-center gap-2 z-50 sticky top-0 shadow-md">
+          <AlertTriangle size={15} className="shrink-0 text-white" />
+          <span>{firebaseMissingError}</span>
+        </div>
+      )}
       <ScrollProgress />
 
       <Navbar

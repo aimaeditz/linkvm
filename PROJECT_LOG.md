@@ -27,3 +27,21 @@ Files touched:
 - PROJECT_LOG.md
 Commit: cc9a074
 Open issues: none
+
+## 2026-09-26
+Summary: Full production readiness pass. Enforced linkvm.online canonical domain, removed all demo/fallback state and mock creators, added select_account prompt to Google Auth, made Firestore and Auth strictly env-driven, and cleaned module-load error logging.
+Files touched:
+- app-source/src/lib/firebase.ts
+- app-source/src/lib/storage.ts
+- app-source/src/lib/site.ts
+- app-source/src/lib/auth-host.ts
+- app-source/src/lib/referrals.ts
+- app-source/src/App.tsx
+- app-source/src/components/auth/LoginPage.tsx
+- app-source/src/components/auth/SignupPage.tsx
+- app-source/src/components/auth/ForgotPasswordPage.tsx
+- firestore.rules
+- PROJECT_LOG.md
+Commit: prod-pass-01
+Open issues: none
+
