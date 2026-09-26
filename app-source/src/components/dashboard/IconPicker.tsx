@@ -213,9 +213,20 @@ export const ICONS_LIST = [
   { name: 'Rss', icon: Rss, category: 'General' },
 ];
 
-export const getIconComponent = (name?: string | null): React.ComponentType<{ className?: string; style?: React.CSSProperties }> => {
-  if (!name) return Globe;
-  const normalized = name.trim().toLowerCase();
+export const getIconComponent = (
+  name?: string | null,
+  url?: string | null
+): React.ComponentType<{ className?: string; style?: React.CSSProperties }> => {
+  let resolvedName = name;
+  if (!resolvedName && url) {
+    const detected = detectPlatformFromUrl(url);
+    if (detected) {
+      resolvedName = detected.icon;
+    }
+  }
+
+  if (!resolvedName) return Globe;
+  const normalized = resolvedName.trim().toLowerCase();
 
   // Aliases for common platforms and casing
   if (normalized === 'tiktok') return TikTokIcon;
