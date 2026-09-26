@@ -71,7 +71,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
             </h1>
 
             <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              LinkVM exists to replace bloated, subscription-gated bio link tools with a fast, pristine, and forever-free alternative built with world-class engineering standards.
+              LinkVM (LinkVaultMe) exists to replace bloated, subscription-gated bio link tools with a fast, pristine, and forever-free alternative built with world-class engineering standards.
             </p>
 
             <div className="mt-4 text-xs font-semibold text-slate-400">

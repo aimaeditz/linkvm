@@ -1,9 +1,9 @@
-# LinkVM — All Your Links. One Unified Page.
+# LinkVM (LinkVaultMe) — All Your Links. One Unified Page.
 
 > **100% Free Forever Creator Bio Platform**  
 > *Created by AiMAEditz*
 
-LinkVM is a blazing-fast, modern, and privacy-conscious link-in-bio platform built for creators, developers, artists, and businesses.
+LinkVM (LinkVaultMe) is a blazing-fast, modern, and privacy-conscious link-in-bio platform built for creators, developers, artists, and businesses.
 
 ---
 

@@ -7,13 +7,13 @@ export function useSeoHead(route: string, profileUser?: User | null) {
     const siteUrl = getSiteUrl();
 
     let title = 'LinkVM — All Your Links. One Premium Page.';
-    let description = 'LinkVM is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
+    let description = 'LinkVM (LinkVaultMe) is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
     let canonical = `${siteUrl}/`;
     let noindex = false;
 
     if (route === 'landing') {
       title = 'LinkVM — All Your Links. One Premium Page.';
-      description = 'LinkVM is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
+      description = 'LinkVM (LinkVaultMe) is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
       canonical = `${siteUrl}/`;
     } else if (route === 'why-free') {
       title = 'Why Free Forever — LinkVM';

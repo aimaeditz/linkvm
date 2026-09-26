@@ -1,7 +1,7 @@
 {
   "name": "LinkVM",
   "short_name": "LinkVM",
-  "description": "All your links. One premium page. 100% free forever.",
+  "description": "LinkVM (LinkVaultMe) — All your links. One premium page. 100% free forever.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

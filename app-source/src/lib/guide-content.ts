@@ -15,7 +15,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     iconName: 'Sparkles',
     subtitle: 'One simple, powerful page for every link you share.',
     content: [
-      'LinkVM is a modern, ultra-fast creator bio link platform designed to consolidate all your digital destinations into a single, beautiful landing page.',
+      'LinkVM (LinkVaultMe) is a modern, ultra-fast creator bio link platform designed to consolidate all your digital destinations into a single, beautiful landing page.',
       'Unlike legacy link-in-bio tools that lock features behind expensive paywalls or subscription tiers, LinkVM is 100% free forever. Every creator gets unlimited links, premium themes, vector QR codes, analytics, and custom branding at zero cost.',
       'Built for speed, privacy, and maximum conversion, LinkVM loads instantly on every device with clean, professional aesthetics.'
     ]
