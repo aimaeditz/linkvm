@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="180" height="180">
+  <defs>
+    <linearGradient id="apple-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+
+    <linearGradient id="apple-gloss" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <filter id="apple-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#1E1B4B" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#apple-bg)" />
+  <path d="M 0 112 C 0 50.1 50.1 0 112 0 L 400 0 C 461.9 0 512 50.1 512 112 L 512 180 Q 256 240 0 180 Z" fill="url(#apple-gloss)" />
+  <rect x="2" y="2" width="508" height="508" rx="110" ry="110" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" />
+
+  <g filter="url(#apple-shadow)">
+    <!-- V Letterform -->
+    <path d="M 84 160 L 120 160 L 150 280 L 180 160 L 218 160 L 164 352 L 136 352 Z" fill="#FFFFFF" />
+
+    <!-- M Letterform -->
+    <path d="M 220 160 L 254 160 L 325 250 L 396 160 L 430 160 L 430 352 L 396 352 L 396 210 L 325 300 L 254 210 L 254 352 L 220 352 Z" fill="#E0E7FF" />
+
+    <!-- Chain Link Glyph -->
+    <g transform="translate(10, 0)">
+      <rect x="396" y="112" width="28" height="15" rx="7.5" fill="none" stroke="#FFFFFF" stroke-width="4.5" transform="rotate(-45 410 119.5)" opacity="0.9" />
+      <rect x="412" y="128" width="28" height="15" rx="7.5" fill="none" stroke="#38BDF8" stroke-width="4.5" transform="rotate(-45 426 135.5)" opacity="0.9" />
+    </g>
+  </g>
+</svg>

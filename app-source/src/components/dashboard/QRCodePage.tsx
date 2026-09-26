@@ -99,7 +99,7 @@ export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
 
   const logoSettings = embedLogo
     ? {
-        src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="%234F46E5"/><path d="M12 28L28 12M28 12H16M28 12V24" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="%234F46E5"/><path d="M 84 160 L 120 160 L 150 280 L 180 160 L 218 160 L 164 352 L 136 352 Z" fill="%23FFFFFF"/><path d="M 220 160 L 254 160 L 325 250 L 396 160 L 430 160 L 430 352 L 396 352 L 396 210 L 325 300 L 254 210 L 254 352 L 220 352 Z" fill="%23E0E7FF"/></svg>',
         height: 28,
         width: 28,
         excavate: true,

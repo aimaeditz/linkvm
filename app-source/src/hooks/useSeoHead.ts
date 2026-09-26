@@ -6,14 +6,14 @@ export function useSeoHead(route: string, profileUser?: User | null) {
   useEffect(() => {
     const siteUrl = getSiteUrl();
 
-    let title = 'LinkVM — All your links. One unified page.';
-    let description = 'Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. 100% Free Forever.';
+    let title = 'LinkVM — All Your Links. One Premium Page.';
+    let description = 'LinkVM is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
     let canonical = `${siteUrl}/`;
     let noindex = false;
 
     if (route === 'landing') {
-      title = 'LinkVM — All your links. One unified page.';
-      description = 'Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. 100% Free Forever.';
+      title = 'LinkVM — All Your Links. One Premium Page.';
+      description = 'LinkVM is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls.';
       canonical = `${siteUrl}/`;
     } else if (route === 'why-free') {
       title = 'Why Free Forever — LinkVM';
@@ -36,12 +36,12 @@ export function useSeoHead(route: string, profileUser?: User | null) {
       description = 'Review the Terms of Service for LinkVM, the free bio link platform for creators.';
       canonical = `${siteUrl}/terms`;
     } else if (route === 'login') {
-      title = 'Sign In — LinkVM';
+      title = 'Sign in — LinkVM';
       description = 'Sign in to your LinkVM account to manage your profile and bio links.';
       canonical = `${siteUrl}/login`;
       noindex = true;
     } else if (route === 'signup') {
-      title = 'Claim Your Link — LinkVM';
+      title = 'Sign up — LinkVM';
       description = 'Create your free LinkVM profile in seconds. No credit card required.';
       canonical = `${siteUrl}/signup`;
       noindex = true;
@@ -95,10 +95,14 @@ export function useSeoHead(route: string, profileUser?: User | null) {
     updateMeta('meta[property="og:url"]', 'property', 'og:url', canonical);
     updateMeta('meta[property="og:type"]', 'property', 'og:type', 'website');
     updateMeta('meta[property="og:site_name"]', 'property', 'og:site_name', 'LinkVM');
+    updateMeta('meta[property="og:image"]', 'property', 'og:image', `${siteUrl}/og-image.png`);
+    updateMeta('meta[property="og:image:width"]', 'property', 'og:image:width', '1200');
+    updateMeta('meta[property="og:image:height"]', 'property', 'og:image:height', '630');
     
     updateMeta('meta[name="twitter:title"]', 'name', 'twitter:title', title);
     updateMeta('meta[name="twitter:description"]', 'name', 'twitter:description', description);
     updateMeta('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    updateMeta('meta[name="twitter:image"]', 'name', 'twitter:image', `${siteUrl}/og-image.png`);
 
     // Robots meta tag for indexing vs noindex
     updateMeta(

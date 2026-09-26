@@ -1,16 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4F46E5"/>
-      <stop offset="100%" stop-color="#0F172A"/>
+    <!-- Glossy Gradient (135deg indigo to violet) -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#6366F1" />
     </linearGradient>
-    <linearGradient id="glyph" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#38BDF8"/>
+
+    <!-- Gloss Overlay -->
+    <linearGradient id="gloss-overlay" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
     </linearGradient>
+
+    <!-- Soft Drop Shadow -->
+    <filter id="vm-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#1E1B4B" flood-opacity="0.3" />
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
-  <path d="M192 176h128c35.3 0 64 28.7 64 64s-28.7 64-64 64H192" fill="none" stroke="url(#glyph)" stroke-width="36" stroke-linecap="round"/>
-  <path d="M320 336H192c-35.3 0-64-28.7-64-64s28.7-64 64-64h128" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="28" fill="#38BDF8"/>
+
+  <!-- Container Base (Rounded Square rx/ry 112) -->
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#bg-grad)" />
+
+  <!-- Soft Top-Left Gloss Highlight -->
+  <path d="M 0 112 C 0 50.1 50.1 0 112 0 L 400 0 C 461.9 0 512 50.1 512 112 L 512 180 Q 256 240 0 180 Z" fill="url(#gloss-overlay)" />
+
+  <!-- 1px Light Rim Border (rgba(255,255,255,0.35)) -->
+  <rect x="2" y="2" width="508" height="508" rx="110" ry="110" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" />
+
+  <!-- VM Monogram Group -->
+  <g filter="url(#vm-shadow)">
+    <!-- V Letterform (Pure White #FFFFFF, Geometric Polygon) -->
+    <path d="M 84 160 L 120 160 L 150 280 L 180 160 L 218 160 L 164 352 L 136 352 Z"
+          fill="#FFFFFF" />
+
+    <!-- M Letterform (Soft Light Indigo #E0E7FF, Geometric Polygon with 2px gap at top from V) -->
+    <path d="M 220 160 L 254 160 L 325 250 L 396 160 L 430 160 L 430 352 L 396 352 L 396 210 L 325 300 L 254 210 L 254 352 L 220 352 Z"
+          fill="#E0E7FF" />
+
+    <!-- Integrated Chain Link Glyph at Top-Right (~15% height) -->
+    <g transform="translate(10, 0)">
+      <rect x="396" y="112" width="28" height="15" rx="7.5" fill="none" stroke="#FFFFFF" stroke-width="4.5" transform="rotate(-45 410 119.5)" opacity="0.9" />
+      <rect x="412" y="128" width="28" height="15" rx="7.5" fill="none" stroke="#38BDF8" stroke-width="4.5" transform="rotate(-45 426 135.5)" opacity="0.9" />
+    </g>
+  </g>
 </svg>

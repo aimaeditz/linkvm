@@ -3,10 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "build:root": "tsc --noEmit && vite build",
+    "build": "node scripts/generate-icons.mjs && tsc --noEmit && vite build",
+    "build:root": "node scripts/generate-icons.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",

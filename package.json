@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "workspaces": [
     "app-source"
   ],
@@ -12,5 +15,9 @@
     "install:app": "cd app-source && npm install",
     "preview": "cd app-source && npm run preview",
     "lint": "cd app-source && npm run lint"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "pngjs": "^7.0.0"
   }
 }

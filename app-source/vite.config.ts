@@ -77,7 +77,16 @@ function preserveRootBuildPlugin(): Plugin {
         'robots.txt',
         'icon.svg',
         'favicon.svg',
+        'favicon.ico',
+        'favicon-48x48.png',
+        'apple-touch-icon.png',
+        'apple-touch-icon.svg',
+        'icon-192.png',
+        'icon-192.svg',
+        'icon-512.png',
+        'icon-512.svg',
         'og-image.svg',
+        'og-image.png',
       ]);
 
       if (fs.existsSync(rootDir)) {
