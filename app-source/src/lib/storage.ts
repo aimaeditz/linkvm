@@ -18,6 +18,10 @@ import {
 } from './firebase';
 import {
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile as updateFirebaseProfile,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -102,7 +106,7 @@ export async function checkUsernameAvailableInFirestore(rawUsername: string): Pr
   }
 }
 
-export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<User> {
+export async function syncUserFromFirebase(firebaseUser: FirebaseUser, fallbackName?: string): Promise<User> {
   const uid = firebaseUser.uid;
   const userRef = doc(db, 'users', uid);
   const now = new Date().toISOString();
@@ -119,17 +123,18 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
 
   if (userDocSnap.exists()) {
     const existing = userDocSnap.data() as User;
+    const nameVal = existing.name || fallbackName || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator');
     userData = {
       ...existing,
       id: uid,
       email: firebaseUser.email || existing.email || '',
-      displayName: firebaseUser.displayName || existing.displayName || '',
+      displayName: firebaseUser.displayName || existing.displayName || nameVal,
       photoURL: firebaseUser.photoURL || existing.photoURL || '',
       avatarUrl: existing.avatarUrl || firebaseUser.photoURL || '',
-      name: existing.name || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : ''),
-      googleEmail: firebaseUser.email || '',
-      googleName: firebaseUser.displayName || '',
-      googlePicture: firebaseUser.photoURL || '',
+      name: nameVal,
+      googleEmail: firebaseUser.email || existing.googleEmail || '',
+      googleName: firebaseUser.displayName || existing.googleName || '',
+      googlePicture: firebaseUser.photoURL || existing.googlePicture || '',
       googleSub: firebaseUser.uid,
       updatedAt: now,
     };
@@ -158,11 +163,13 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       chosenUsername = `${chosenUsername}${Math.floor(100 + Math.random() * 900)}`;
     }
 
+    const nameVal = fallbackName || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator');
+
     userData = {
       id: uid,
       email: firebaseUser.email || '',
-      displayName: firebaseUser.displayName || '',
-      name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator'),
+      displayName: firebaseUser.displayName || nameVal,
+      name: nameVal,
       photoURL: firebaseUser.photoURL || '',
       avatarUrl: firebaseUser.photoURL || '',
       username: chosenUsername,
@@ -261,6 +268,30 @@ export class AuthService {
 
   static isSessionActive(): boolean {
     return Boolean(auth.currentUser || cachedCurrentUser);
+  }
+
+  static async loginWithEmail(email: string, password: string): Promise<User> {
+    const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+    const user = await syncUserFromFirebase(result.user);
+    return user;
+  }
+
+  static async signupWithEmail(name: string, email: string, password: string): Promise<User> {
+    const trimmedName = name.trim();
+    const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    if (trimmedName) {
+      try {
+        await updateFirebaseProfile(result.user, { displayName: trimmedName });
+      } catch {
+        // non-blocking
+      }
+    }
+    const user = await syncUserFromFirebase(result.user, trimmedName);
+    return user;
+  }
+
+  static async sendPasswordReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(auth, email.trim());
   }
 
   static async loginWithGoogle(): Promise<{ user?: User; error?: string }> {

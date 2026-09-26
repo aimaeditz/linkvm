@@ -16,6 +16,8 @@ import { Footer } from './components/landing/Footer';
 
 // Auth Components
 import { LoginPage } from './components/auth/LoginPage';
+import { SignupPage } from './components/auth/SignupPage';
+import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 
 // Dashboard Components
 import { Sidebar } from './components/dashboard/Sidebar';
@@ -145,6 +147,7 @@ export default function App() {
     const RESERVED_PATHS = new Set([
       'login',
       'signup',
+      'forgot-password',
       'dashboard',
       'why-free',
       'about',
@@ -197,8 +200,8 @@ export default function App() {
       return;
     }
 
-    // Auth routes (/login & /signup) -> redirect to /dashboard if logged in
-    if (firstSegment === 'login' || firstSegment === 'signup') {
+    // Auth routes (/login, /signup & /forgot-password) -> redirect to /dashboard if logged in
+    if (firstSegment === 'login' || firstSegment === 'signup' || firstSegment === 'forgot-password') {
       if (StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/dashboard'));
         setRoute('dashboard');
@@ -302,6 +305,7 @@ export default function App() {
     if (targetRoute === 'landing' || targetRoute === '') newPath = '/';
     else if (targetRoute === 'login') newPath = '/login';
     else if (targetRoute === 'signup') newPath = '/signup';
+    else if (targetRoute === 'forgot-password') newPath = '/forgot-password';
     else if (targetRoute === 'about') newPath = '/about';
     else if (targetRoute === 'privacy') newPath = '/privacy';
     else if (targetRoute === 'terms') newPath = '/terms';
@@ -338,11 +342,15 @@ export default function App() {
   };
 
   if (route === 'login') {
-    return <LoginPage mode="login" onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+    return <LoginPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
   }
 
   if (route === 'signup') {
-    return <LoginPage mode="signup" onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+    return <SignupPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+  }
+
+  if (route === 'forgot-password') {
+    return <ForgotPasswordPage onNavigate={handleNavigate} />;
   }
 
   if (route === 'about') {

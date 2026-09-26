@@ -45,6 +45,11 @@ export function useSeoHead(route: string, profileUser?: User | null) {
       description = 'Create your free LinkVM profile in seconds. No credit card required.';
       canonical = `${siteUrl}/signup`;
       noindex = true;
+    } else if (route === 'forgot-password') {
+      title = 'Reset Password — LinkVM';
+      description = 'Reset your LinkVM account password.';
+      canonical = `${siteUrl}/forgot-password`;
+      noindex = true;
     } else if (route === 'dashboard') {
       title = 'Dashboard — LinkVM';
       description = 'Manage your LinkVM profile, links, appearance, QR codes, and analytics.';

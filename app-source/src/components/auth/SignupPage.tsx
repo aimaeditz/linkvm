@@ -1,6 +1,359 @@
-import React from 'react';
-import { LoginPage, AuthPageProps } from './LoginPage';
+import React, { useState } from 'react';
+import { Logo } from '../shared/Logo';
+import { AuthService } from '../../lib/storage';
+import { AuthBackdrop } from './AuthBackdrop';
+import { FloatingChips } from './FloatingChips';
+import { AlertCircle, Info, Loader2, Mail, Lock, User as UserIcon } from 'lucide-react';
+import {
+  isAuthHostSupported,
+  UNAUTHORIZED_PREVIEW_NOTICE,
+  getFriendlyAuthErrorMessage,
+} from '../../lib/auth-host';
 
-export const SignupPage: React.FC<Omit<AuthPageProps, 'mode'>> = (props) => {
-  return <LoginPage mode="signup" {...props} />;
+export interface SignupPageProps {
+  onSuccess?: () => void;
+  onNavigate?: (route: string) => void;
+}
+
+export const SignupPage: React.FC<SignupPageProps> = ({
+  onSuccess,
+  onNavigate,
+}) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+
+  const isHostAllowed = isAuthHostSupported();
+
+  const handleNavigate = (route: string) => {
+    if (onNavigate) {
+      onNavigate(route);
+    } else {
+      window.location.href = `/${route}`;
+    }
+  };
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    if (!agreeTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy to create an account.');
+      return;
+    }
+
+    setLoadingEmail(true);
+    try {
+      await AuthService.signupWithEmail(trimmedName, trimmedEmail, password);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      console.error('Email sign-up error:', err);
+      setError(getFriendlyAuthErrorMessage(err));
+    } finally {
+      setLoadingEmail(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (!isHostAllowed) {
+      setError(UNAUTHORIZED_PREVIEW_NOTICE);
+      return;
+    }
+
+    setError('');
+    setLoadingGoogle(true);
+    try {
+      await AuthService.loginWithGoogleFirebase();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      setError(getFriendlyAuthErrorMessage(err));
+    } finally {
+      setLoadingGoogle(false);
+    }
+  };
+
+  const isLoading = loadingEmail || loadingGoogle;
+
+  return (
+    <div className="relative min-h-screen w-full overflow-y-auto flex items-center justify-center px-4 py-12 bg-white font-sans selection:bg-indigo-500 selection:text-white">
+      <AuthBackdrop />
+      <FloatingChips />
+
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => handleNavigate('')}
+            className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-2xl p-1"
+          >
+            <Logo size="md" />
+          </button>
+        </div>
+
+        <div className="w-full rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.08)] p-8 md:p-10 flex flex-col items-center">
+          <div className="text-center mb-6 w-full">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Welcome to LinkVM
+            </h1>
+            <p className="text-xs text-slate-500 mt-1.5 font-semibold">
+              Create your LinkVM account.
+            </p>
+          </div>
+
+          {!isHostAllowed && (
+            <div className="w-full mb-5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/70 text-amber-800 text-xs font-semibold flex items-start gap-2.5">
+              <Info size={16} className="shrink-0 text-amber-600 mt-0.5" />
+              <span>{UNAUTHORIZED_PREVIEW_NOTICE}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="w-full mb-5 p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold flex items-start gap-2">
+              <AlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleEmailSignUp} className="w-full space-y-3.5">
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Full name
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <UserIcon size={16} />
+                </div>
+                <input
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Doe"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/90 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Email address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Mail size={16} />
+                </div>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/90 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock size={16} />
+                </div>
+                <input
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/90 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Confirm password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock size={16} />
+                </div>
+                <input
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat your password"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/90 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div className="pt-1 flex items-start gap-2.5">
+              <input
+                id="terms-checkbox"
+                type="checkbox"
+                required
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                disabled={isLoading}
+              />
+              <label htmlFor="terms-checkbox" className="text-[11px] text-slate-600 leading-snug cursor-pointer select-none">
+                I agree to the{' '}
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('terms')}
+                  className="text-indigo-600 hover:text-indigo-700 font-bold underline underline-offset-2"
+                >
+                  Terms of Service
+                </button>{' '}
+                and{' '}
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('privacy')}
+                  className="text-indigo-600 hover:text-indigo-700 font-bold underline underline-offset-2"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-11 mt-2 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingEmail ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Creating account…</span>
+                </>
+              ) : (
+                <span>Create account</span>
+              )}
+            </button>
+          </form>
+
+          <div className="w-full flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-slate-200"></div>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">or</span>
+            <div className="flex-1 h-px bg-slate-200"></div>
+          </div>
+
+          <div className="w-full flex flex-col items-center justify-center">
+            <button
+              type="button"
+              disabled={isLoading || !isHostAllowed}
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center gap-3 h-11 px-5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingGoogle ? (
+                <>
+                  <Loader2 size={16} className="animate-spin text-slate-600" />
+                  <span>Connecting with Google…</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                    />
+                  </svg>
+                  <span>Continue with Google</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="w-full text-center mt-6">
+            <p className="text-xs text-slate-600 font-medium">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => handleNavigate('login')}
+                className="text-indigo-600 hover:text-indigo-700 font-bold underline underline-offset-2 cursor-pointer"
+              >
+                Sign in
+              </button>
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center text-[10px] text-slate-400 font-bold flex flex-wrap justify-center gap-1">
+          <span>&copy; 2026 LinkVM</span>
+          <span>·</span>
+          <span>100% Free Forever</span>
+          <span>·</span>
+          <span>Created by AiMAEditz</span>
+        </div>
+      </div>
+    </div>
+  );
 };
