@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="50%" stop-color="#1E1B4B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="200" cy="150" r="300" fill="#4F46E5" opacity="0.15" filter="blur(60px)"/>
+  <circle cx="1000" cy="480" r="350" fill="#0284C7" opacity="0.15" filter="blur(60px)"/>
+  
+  <g transform="translate(100, 180)">
+    <rect width="80" height="80" rx="20" fill="url(#brand)"/>
+    <text x="40" y="52" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="36" font-weight="900" text-anchor="middle">VM</text>
+    <text x="110" y="55" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="48" font-weight="800" letter-spacing="-1">LinkVM</text>
+    
+    <text x="0" y="150" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="52" font-weight="800" letter-spacing="-1.5">All your links. One unified page.</text>
+    <text x="0" y="210" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="24" font-weight="400">Consolidate your social media, portfolio, and digital content into one page.</text>
+    <text x="0" y="245" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="24" font-weight="400">100% Free Forever for creators &amp; professionals.</text>
+    
+    <rect x="0" y="290" width="220" height="50" rx="25" fill="#4F46E5"/>
+    <text x="110" y="323" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="700" text-anchor="middle">https://linkvm.online</text>
+  </g>
+</svg>

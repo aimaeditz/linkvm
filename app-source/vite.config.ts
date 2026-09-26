@@ -73,6 +73,11 @@ function preserveRootBuildPlugin(): Plugin {
         '.env',
         '.env.example',
         '.env.production',
+        'sitemap.xml',
+        'robots.txt',
+        'icon.svg',
+        'favicon.svg',
+        'og-image.svg',
       ]);
 
       if (fs.existsSync(rootDir)) {

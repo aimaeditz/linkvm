@@ -129,6 +129,15 @@ When you purchase and connect your custom domain (`https://linkvm.online/`):
 
 ---
 
+## 🔍 SEO Maintenance
+
+- **Sitemap Location**: The official XML sitemap lives at `https://linkvm.online/sitemap.xml` (also mirrored in `app-source/public/sitemap.xml`).
+- **Google Search Console Submission**: Submit `https://linkvm.online/sitemap.xml` once in Google Search Console under **Sitemaps** for automatic discovery of all public pages (`/`, `/why-free`, `/about`, `/contact`, `/privacy`, `/terms`).
+- **Canonical Base URL**: All canonical links, OpenGraph cards, Twitter cards, vector QR codes, and share URLs use `VITE_SITE_URL` as the single source of truth (`https://linkvm.online/`).
+- **Real Content Discipline**: Every indexed page renders real, visible content, titles, meta descriptions, and canonical tags (no shadow content, no keyword stuffing, no cloaking). Public profile URLs are resolved dynamically.
+
+---
+
 ## 🔒 License & Credits
 
 Created by **AiMAEditz**. 100% Free Forever with no hidden subscriptions, tiers, or paywalls.

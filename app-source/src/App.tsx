@@ -39,6 +39,7 @@ import { ContactPage } from './components/info/ContactPage';
 import { WhyFreePage } from './components/info/WhyFreePage';
 import { ScrollProgress } from './components/shared/ScrollProgress';
 import { BackToTop } from './components/shared/BackToTop';
+import { useSeoHead } from './hooks/useSeoHead';
 
 export default function App() {
   const [route, setRoute] = useState<string>('landing');
@@ -61,6 +62,9 @@ export default function App() {
   const [profileLinks, setProfileLinks] = useState<LinkItem[]>([]);
   const [profileTheme, setProfileTheme] = useState<ThemeConfig | null>(null);
   const [profileSocials, setProfileSocials] = useState<SocialLinks | null>(null);
+
+  // Update document title, meta tags, canonical URL, and indexing directives on route/profile change
+  useSeoHead(route, profileUser);
 
   const refreshAllState = () => {
     const user = StorageService.getCurrentUser();

@@ -1,14 +1,15 @@
 {
   "name": "LinkVM",
   "short_name": "LinkVM",
-  "description": "All your links. One unified page. 100% Free Forever.",
-  "start_url": "/linkvm/",
+  "description": "Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. 100% Free Forever.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#0F172A",
   "icons": [
     {
-      "src": "/linkvm/icon.svg",
+      "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
