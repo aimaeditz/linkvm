@@ -9,6 +9,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function getComputedBase(mode: string): string {
+  if (process.env.AI_STUDIO === 'true' || process.env.AI_STUDIO) {
+    return '/';
+  }
   if (process.env.VITE_BASE_PATH) {
     return process.env.VITE_BASE_PATH;
   }
@@ -23,7 +26,7 @@ function getComputedBase(mode: string): string {
       // Fallback below
     }
   }
-  return '/';
+  return '/linkvm/';
 }
 
 function preserveRootBuildPlugin(): Plugin {
@@ -62,6 +65,7 @@ function preserveRootBuildPlugin(): Plugin {
         'package.json',
         'bun.lock',
         'metadata.json',
+        'vercel.json',
         'CNAME',
         '.env',
         '.env.example',
@@ -83,8 +87,13 @@ function preserveRootBuildPlugin(): Plugin {
       }
     },
     closeBundle() {
-      // Ensure .nojekyll always exists at repo root
+      // Ensure dist contents are copied to rootDir for Vercel Output Directory '.'
       const rootDir = path.resolve(__dirname, '..');
+      const distDir = path.resolve(__dirname, 'dist');
+      if (fs.existsSync(distDir)) {
+        fs.cpSync(distDir, rootDir, { recursive: true });
+      }
+      // Ensure .nojekyll always exists at repo root
       const nojekyllPath = path.join(rootDir, '.nojekyll');
       if (!fs.existsSync(nojekyllPath)) {
         fs.writeFileSync(nojekyllPath, '');
