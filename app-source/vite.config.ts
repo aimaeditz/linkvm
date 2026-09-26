@@ -23,7 +23,7 @@ function getComputedBase(mode: string): string {
       // Fallback below
     }
   }
-  return '/linkvm/';
+  return '/';
 }
 
 function preserveRootBuildPlugin(): Plugin {
@@ -119,8 +119,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      outDir: '..',
-      emptyOutDir: false,
+      outDir: 'dist',
+      emptyOutDir: true,
       assetsDir: 'assets',
       sourcemap: false,
       cssMinify: 'esbuild',

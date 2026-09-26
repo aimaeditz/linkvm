@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "app-source"
+  ],
   "scripts": {
     "dev": "cd app-source && npm run dev",
     "build": "cd app-source && npm run build:root",
