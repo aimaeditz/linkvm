@@ -4,7 +4,7 @@ import { StorageService } from '../../lib/storage';
 import { getIconComponent } from '../dashboard/IconPicker';
 import { ShareMenu } from '../profile/ShareMenu';
 import { SOCIAL_PLATFORMS, BRAND, getThemeStyles } from '../../lib/constants';
-import { CheckCircle2, Share2, ExternalLink, ArrowLeft, Globe } from 'lucide-react';
+import { CheckCircle2, Share2, ExternalLink, ArrowLeft, Globe, Copy, Check } from 'lucide-react';
 import { buildPatternDisplayUrl } from '../../lib/username-patterns';
 import { SocialIconsRow } from '../profile/SocialIconsRow';
 
@@ -26,8 +26,18 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
   onNavigateHome,
 }) => {
   const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const visibleLinks = links.filter((l) => l.visible);
-  const displayUrl = buildPatternDisplayUrl(user.sharePattern || '{username}', user.username);
+  const cleanUsername = (user.username || '').replace(/^[@$\-+!~]/, '').trim();
+  const displayUrl = cleanUsername ? `linkvm.online/${cleanUsername}` : 'linkvm.online';
+  const fullPublicUrl = `https://linkvm.online/${cleanUsername || user.username}`;
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(fullPublicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   // Record profile view event on mount
   useEffect(() => {
@@ -314,16 +324,29 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
 
         {/* Footer Branding */}
         <footer className="w-full max-w-md pt-12 pb-4 text-center flex flex-col items-center gap-1.5">
-          <a
-            href="/"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/80 hover:bg-white backdrop-blur-md border border-slate-200/80 text-xs font-bold text-slate-800 shadow-2xs transition-all cursor-pointer"
+          <div className="flex items-center justify-center gap-1.5 text-xs font-mono font-medium opacity-75" style={{ color: theme.textColor }}>
+            <span>{displayUrl}</span>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              aria-label="Copy profile link"
+              className="p-0.5 rounded hover:bg-black/5 active:scale-95 transition-all text-current opacity-70 hover:opacity-100 cursor-pointer inline-flex items-center justify-center"
+              title="Copy profile link"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+          <div
+            className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-normal select-none"
+            style={{ color: theme.textColor, opacity: 0.6 }}
           >
-            <span className="text-slate-900">Made with LinkVM</span>
+            <span>Made with LinkVM</span>
             <span>•</span>
-            <span className="text-slate-500 font-bold">{BRAND.badge}</span>
-          </a>
-          <div className="text-[10px] font-bold text-slate-400 select-none">
-            Created by AiMAEditz
+            <span>100% Free Forever</span>
           </div>
         </footer>
 

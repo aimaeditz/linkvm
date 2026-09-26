@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, LinkItem, ThemeConfig, SocialLinks } from '../../types';
 import { getIconComponent } from './IconPicker';
-import { CheckCircle2, Sparkles, ExternalLink, Globe } from 'lucide-react';
+import { CheckCircle2, Sparkles, ExternalLink, Globe, Copy, Check } from 'lucide-react';
 import { BRAND, getThemeStyles } from '../../lib/constants';
 import { buildPatternDisplayUrl } from '../../lib/username-patterns';
 import { SocialIconsRow } from '../profile/SocialIconsRow';
@@ -19,9 +19,18 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
   theme,
   socials,
 }) => {
+  const [copied, setCopied] = useState(false);
   const visibleLinks = links.filter((l) => l.visible);
   const cleanUsername = (user.username || '').replace(/^[@$\-+!~]/, '').trim();
   const displayUrl = cleanUsername ? `linkvm.online/${cleanUsername}` : 'linkvm.online';
+  const fullPublicUrl = `https://linkvm.online/${cleanUsername || user.username}`;
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(fullPublicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const getButtonShapeClass = (shape: string) => {
     switch (shape) {
@@ -242,16 +251,26 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
 
           {/* Footer Brand Credit */}
           <div className="pt-5 pb-2 text-center relative z-10 space-y-1">
-            <div className="text-[10px] font-mono font-semibold opacity-75" style={{ color: theme.textColor }}>
-              {displayUrl}
+            <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono font-medium opacity-75" style={{ color: theme.textColor }}>
+              <span>{displayUrl}</span>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                aria-label="Copy profile link"
+                className="p-0.5 rounded hover:bg-black/5 active:scale-95 transition-all text-current opacity-70 hover:opacity-100 cursor-pointer inline-flex items-center justify-center"
+                title="Copy profile link"
+              >
+                {copied ? (
+                  <Check className="w-3 h-3 text-emerald-500" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+              </button>
             </div>
-            <div className="inline-flex items-center gap-1 text-[10px] font-bold opacity-60" style={{ color: theme.textColor }}>
+            <div className="inline-flex items-center gap-1 text-[10px] font-normal text-slate-400 select-none" style={{ color: theme.textColor, opacity: 0.6 }}>
               <span>Made with LinkVM</span>
               <span>•</span>
               <span>100% Free Forever</span>
-            </div>
-            <div className="text-[8px] font-medium opacity-40" style={{ color: theme.textColor }}>
-              Created by AiMAEditz
             </div>
           </div>
         </div>
