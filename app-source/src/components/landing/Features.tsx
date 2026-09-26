@@ -20,46 +20,55 @@ export const Features: React.FC = () => {
       title: 'Unlimited Links',
       description: 'Add every social account, portfolio, and business link in one place with custom icons.',
       icon: Link2,
+      gradient: 'from-[#6D28D9] to-[#7C3AED]',
     },
     {
-      title: '34 Themes Unlocked',
+      title: 'All Themes Unlocked',
       description: 'Hand-crafted themes with live preview. Colors, typography, and button shapes — all 100% free.',
       icon: Palette,
+      gradient: 'from-[#047857] to-[#059669]',
     },
     {
       title: 'Real-Time Analytics',
       description: 'Track views, clicks, and traffic sources with privacy-first analytics and zero trackers.',
       icon: BarChart3,
+      gradient: 'from-[#C2410C] to-[#EA580C]',
     },
     {
       title: 'Auto QR Code',
       description: 'Every page gets an instant high-resolution QR code, downloadable in SVG and PNG format.',
       icon: QrCode,
+      gradient: 'from-[#1D4ED8] to-[#2563EB]',
     },
     {
       title: 'Instant Auto-Save',
       description: 'Every change saves automatically with an 800ms debounce. Zero data loss.',
       icon: Save,
+      gradient: 'from-[#BE123C] to-[#E11D48]',
     },
     {
       title: 'Drag & Drop',
       description: 'Reorder links with buttery-smooth drag and drop reordering.',
       icon: Move,
+      gradient: 'from-[#0F766E] to-[#0D9488]',
     },
     {
       title: 'Live Preview',
       description: 'See your public page update in real time as you customize.',
       icon: Eye,
+      gradient: 'from-[#4338CA] to-[#6366F1]',
     },
     {
       title: 'Privacy First',
       description: 'No third-party ad trackers. Aggregated, anonymous analytics only.',
       icon: Shield,
+      gradient: 'from-[#334155] to-[#1E293B]',
     },
     {
       title: 'Lightning Fast',
       description: 'Sub-100ms page loads. Optimized for mobile-first audiences worldwide.',
       icon: Zap,
+      gradient: 'from-[#D97706] to-[#F59E0B]',
     },
   ];
 
@@ -114,20 +123,18 @@ export const Features: React.FC = () => {
               <motion.div
                 key={idx}
                 variants={shouldReduceMotion ? undefined : itemVariants}
-                className="group p-8 rounded-2xl bg-white border border-slate-200/80 shadow-soft hover:shadow-large hover:scale-[1.02] transition-all duration-300 flex flex-col items-start relative overflow-hidden"
+                className={`group p-8 rounded-2xl bg-gradient-to-br ${feat.gradient} shadow-lg shadow-black/10 ring-1 ring-white/20 hover:scale-[1.02] transition-transform duration-300 flex flex-col items-start relative overflow-hidden`}
               >
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 shadow-sm">
-                  <Icon size={22} />
+                <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white mb-6 border border-white/20 shadow-inner">
+                  <Icon size={22} className="text-white" />
                 </div>
 
-                <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-2">
+                <h3 className="text-lg font-semibold text-white tracking-tight mb-2">
                   {feat.title}
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-white/85 leading-relaxed">
                   {feat.description}
                 </p>
-
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </motion.div>
             );
           })}

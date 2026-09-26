@@ -11,7 +11,6 @@ import { Hero } from './components/landing/Hero';
 import { TrustBar } from './components/landing/TrustBar';
 import { Features } from './components/landing/Features';
 import { HowItWorks } from './components/landing/HowItWorks';
-import { WhyFree } from './components/landing/WhyFree';
 import { Testimonials } from './components/landing/Testimonials';
 import { FAQ } from './components/landing/FAQ';
 import { FinalCTA } from './components/landing/FinalCTA';
@@ -600,7 +599,6 @@ export default function App() {
         <TrustBar />
         <Features />
         <HowItWorks />
-        <WhyFree onStartFree={() => handleNavigate('login')} />
         <Testimonials />
         <FAQ />
         <FinalCTA onStartFree={() => handleNavigate('login')} />
