@@ -473,12 +473,29 @@ export class StorageService {
     if (!clean) return null;
 
     try {
-      const q = query(collection(db, 'users'), where('username', '==', clean));
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      return snap.docs[0].data() as User;
+      // 1. Look up username in the unique usernames registry
+      const unameDocRef = doc(db, 'usernames', clean);
+      const unameSnap = await getDoc(unameDocRef);
+      if (unameSnap.exists()) {
+        const uid = unameSnap.data()?.uid;
+        if (uid) {
+          const userDocRef = doc(db, 'users', uid);
+          const userSnap = await getDoc(userDocRef);
+          if (userSnap.exists()) {
+            return userSnap.data() as User;
+          }
+        }
+      }
+
+      // 2. Direct UID doc fetch if username passed is directly a UID
+      const directUserSnap = await getDoc(doc(db, 'users', clean));
+      if (directUserSnap.exists()) {
+        return directUserSnap.data() as User;
+      }
+
+      return null;
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, 'users');
+      console.warn('Could not find user by username:', clean, err);
       return null;
     }
   }
