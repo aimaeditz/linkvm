@@ -127,7 +127,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
 
         {/* Screen Container */}
         <div
-          className="w-full h-full rounded-[36px] overflow-y-auto overflow-x-hidden flex flex-col justify-between p-3.5 pt-9 shadow-inner relative no-scrollbar"
+          className="w-full h-full rounded-[36px] overflow-y-auto overflow-x-hidden flex flex-col justify-between p-3.5 pt-8 pb-2 shadow-inner relative no-scrollbar"
           style={{ ...backgroundStyle, fontFamily: theme.fontFamily }}
         >
           {/* Decorative Stickers */}
@@ -250,24 +250,24 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
           </div>
 
           {/* Footer Brand Credit */}
-          <div className="pt-5 pb-2 text-center relative z-10 space-y-1">
-            <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono font-medium opacity-75" style={{ color: theme.textColor }}>
+          <div className="pt-4 pb-1 text-center relative z-10 flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono font-medium text-slate-500">
               <span>{displayUrl}</span>
               <button
                 type="button"
                 onClick={handleCopyLink}
                 aria-label="Copy profile link"
-                className="p-0.5 rounded hover:bg-black/5 active:scale-95 transition-all text-current opacity-70 hover:opacity-100 cursor-pointer inline-flex items-center justify-center"
+                className="p-0.5 rounded hover:bg-black/5 active:scale-95 transition-all text-slate-500 hover:text-slate-700 cursor-pointer inline-flex items-center justify-center"
                 title="Copy profile link"
               >
                 {copied ? (
                   <Check className="w-3 h-3 text-emerald-500" />
                 ) : (
-                  <Copy className="w-3 h-3" />
+                  <Copy className="w-3 h-3 text-slate-500" />
                 )}
               </button>
             </div>
-            <div className="inline-flex items-center gap-1 text-[10px] font-normal text-slate-400 select-none" style={{ color: theme.textColor, opacity: 0.6 }}>
+            <div className="inline-flex items-center gap-1 text-[10px] font-normal text-slate-600 select-none">
               <span>Made with LinkVM</span>
               <span>•</span>
               <span>100% Free Forever</span>
