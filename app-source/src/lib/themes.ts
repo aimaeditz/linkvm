@@ -1496,7 +1496,7 @@ THEME_PRESETS.forEach((theme) => {
   else theme.signature = 'flat';
 });
 
-export function presetToConfig(preset: ThemePreset, userId = 'guest'): ThemeConfig {
+export function presetToConfig(preset: ThemePreset, userId = ''): ThemeConfig {
   return {
     id: `theme_${preset.id}`,
     userId,

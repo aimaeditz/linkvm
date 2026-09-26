@@ -15,24 +15,27 @@ const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID;
 const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
-export const isFirebaseConfigured = Boolean(
-  apiKey && authDomain && projectId && storageBucket && messagingSenderId && appId
-);
+const missingVars: string[] = [];
+if (!apiKey) missingVars.push('VITE_FIREBASE_API_KEY');
+if (!authDomain) missingVars.push('VITE_FIREBASE_AUTH_DOMAIN');
+if (!projectId) missingVars.push('VITE_FIREBASE_PROJECT_ID');
+if (!storageBucket) missingVars.push('VITE_FIREBASE_STORAGE_BUCKET');
+if (!messagingSenderId) missingVars.push('VITE_FIREBASE_MESSAGING_SENDER_ID');
+if (!appId) missingVars.push('VITE_FIREBASE_APP_ID');
 
-if (!isFirebaseConfigured) {
-  console.warn(
-    '[LinkVM Warning] Missing or incomplete Firebase configuration in environment variables. ' +
-    'The application will run with local/demo state.'
+if (missingVars.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env configuration.`
   );
 }
 
 const firebaseConfig = {
-  apiKey: apiKey || 'AIzaSyDemoPlaceholderKey1234567890abcdef',
-  authDomain: authDomain || 'linkvm-demo.firebaseapp.com',
-  projectId: projectId || 'linkvm-demo',
-  storageBucket: storageBucket || 'linkvm-demo.appspot.com',
-  messagingSenderId: messagingSenderId || '123456789012',
-  appId: appId || '1:123456789012:web:demo1234567890abcdef',
+  apiKey,
+  authDomain,
+  projectId,
+  storageBucket,
+  messagingSenderId,
+  appId,
   measurementId: measurementId || undefined,
 };
 
@@ -98,12 +101,11 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.warn('Firestore Warning: ', JSON.stringify(errInfo));
+  console.warn('Database Warning: ', JSON.stringify(errInfo));
   return errInfo;
 }
 
 export async function testConnection() {
-  if (!isFirebaseConfigured) return;
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
@@ -111,11 +113,9 @@ export async function testConnection() {
       error instanceof Error &&
       error.message.includes('the client is offline')
     ) {
-      console.warn('Firebase connection offline or unconfigured.');
+      console.warn('Database connection offline.');
     }
   }
 }
 
-if (isFirebaseConfigured) {
-  testConnection();
-}
+testConnection();

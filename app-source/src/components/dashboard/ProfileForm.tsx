@@ -121,7 +121,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                 type="text"
                 value={formData.name}
                 onChange={(e) => onChange({ name: e.target.value })}
-                placeholder="e.g. Alex Rivera"
+                placeholder="e.g. Jane Doe"
                 maxLength={50}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:border-slate-900 transition"
               />

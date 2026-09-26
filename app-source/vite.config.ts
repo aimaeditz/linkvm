@@ -161,7 +161,6 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       assetsDir: 'assets',
       sourcemap: false,
-      cssMinify: 'esbuild',
     },
     server: {
       port: 3000,
