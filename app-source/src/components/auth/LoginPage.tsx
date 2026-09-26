@@ -4,6 +4,7 @@ import { AuthService } from '../../lib/storage';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
 import { AlertCircle, Info, Loader2, Mail, Lock } from 'lucide-react';
+import { AuthStatusOverlay, AuthStatus } from './AuthStatusOverlay';
 import {
   isAuthHostSupported,
   UNAUTHORIZED_PREVIEW_NOTICE,
@@ -26,6 +27,9 @@ export const LoginPage: React.FC<AuthPageProps> = ({
   const [error, setError] = useState<string>('');
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('idle');
+  const [authMethod, setAuthMethod] = useState<'email' | 'google'>('email');
+  const [statusMessage, setStatusMessage] = useState<string>('');
 
   const isHostAllowed = isAuthHostSupported();
 
@@ -63,8 +67,14 @@ export const LoginPage: React.FC<AuthPageProps> = ({
     }
 
     setLoadingEmail(true);
+    setAuthStatus('loading');
+    setAuthMethod('email');
+    setStatusMessage('Signing you in...');
+
     try {
       await AuthService.loginWithEmail(trimmedEmail, password);
+      setAuthStatus('success');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (onSuccess) {
         onSuccess();
       } else {
@@ -73,6 +83,7 @@ export const LoginPage: React.FC<AuthPageProps> = ({
     } catch (err) {
       console.error('Email sign-in error:', err);
       setError(getFriendlyAuthErrorMessage(err));
+      setAuthStatus('idle');
     } finally {
       setLoadingEmail(false);
     }
@@ -86,8 +97,14 @@ export const LoginPage: React.FC<AuthPageProps> = ({
 
     setError('');
     setLoadingGoogle(true);
+    setAuthStatus('loading');
+    setAuthMethod('google');
+    setStatusMessage('Connecting with Google...');
+
     try {
       await AuthService.loginWithGoogleFirebase();
+      setAuthStatus('success');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (onSuccess) {
         onSuccess();
       } else {
@@ -96,6 +113,7 @@ export const LoginPage: React.FC<AuthPageProps> = ({
     } catch (err) {
       console.error('Google sign-in error:', err);
       setError(getFriendlyAuthErrorMessage(err));
+      setAuthStatus('idle');
     } finally {
       setLoadingGoogle(false);
     }
@@ -119,7 +137,13 @@ export const LoginPage: React.FC<AuthPageProps> = ({
           </button>
         </div>
 
-        <div className="w-full rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.08)] p-8 md:p-10 flex flex-col items-center">
+        <div className="relative overflow-hidden w-full rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.08)] p-8 md:p-10 flex flex-col items-center">
+          <AuthStatusOverlay
+            status={authStatus}
+            mode="login"
+            method={authMethod}
+            message={statusMessage}
+          />
           <div className="text-center mb-6 w-full">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Welcome back

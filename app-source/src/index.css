@@ -107,6 +107,17 @@
   }
 }
 
+@keyframes checkBounce {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes spinnerGlow {
+  0%, 100% { opacity: 0.35; transform: scale(0.95); }
+  50% { opacity: 0.75; transform: scale(1.08); }
+}
+
 .animate-marquee {
   display: flex;
   width: max-content;
@@ -115,6 +126,14 @@
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+.animate-check-bounce {
+  animation: checkBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-spinner-glow {
+  animation: spinnerGlow 2.5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
