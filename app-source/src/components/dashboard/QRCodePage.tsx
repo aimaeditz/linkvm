@@ -3,7 +3,7 @@ import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { User, ThemeConfig } from '../../types';
 import { buildPatternUrl, buildPatternDisplayUrl } from '../../lib/username-patterns';
 import { getSiteUrl } from '../../lib/site';
-import { generateReferralCode, buildReferralUrl } from '../../lib/referrals';
+import { generateReferralCode, buildReferralUrl } from '@/lib/referrals';
 import { copyToClipboard } from '../../lib/utils';
 import { Download, Copy, Check, Palette, AlertCircle, Users, Share2 } from 'lucide-react';
 

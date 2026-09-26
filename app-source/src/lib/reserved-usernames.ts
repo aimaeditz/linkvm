@@ -1,44 +1,65 @@
-const RESERVED_LIST = new Set([
+export const RESERVED_USERNAMES = new Set([
   'admin',
   'administrator',
-  'dashboard',
+  'api',
+  'auth',
   'login',
   'signup',
-  'forgot-password',
-  'api',
-  'app',
-  'linkvm',
+  'register',
+  'logout',
+  'dashboard',
   'settings',
+  'profile',
+  'account',
   'help',
+  'support',
+  'root',
+  'system',
+  'null',
+  'undefined',
+  'true',
+  'false',
+  'pricing',
+  'why-free',
   'about',
   'contact',
-  'terms',
   'privacy',
-  'why-free',
-  'r',
-  'invite',
-  'assets',
-  'favicon.ico',
-  'manifest.json',
-  'index.html',
-  '404',
-  'overview',
+  'terms',
+  'faq',
+  'analytics',
   'links',
   'appearance',
-  'analytics',
-  'qrcode',
-  'guide',
+  'qr-code',
+  'changelog',
+  'linkvm',
+  'official',
+  'security',
+  'status',
+  'billing',
 ]);
 
 export function isReservedUsername(username: string): boolean {
-  return RESERVED_LIST.has(username.toLowerCase().trim());
+  return RESERVED_USERNAMES.has(username.trim().toLowerCase());
 }
 
 export function validateUsername(username: string): { valid: boolean; error?: string } {
-  const clean = username.trim().toLowerCase();
-  if (!clean) return { valid: false, error: 'Username is required.' };
-  if (clean.length < 3) return { valid: false, error: 'Username must be at least 3 characters.' };
-  if (clean.length > 30) return { valid: false, error: 'Username must be 30 characters or less.' };
-  if (!/^[a-z0-9_-]+$/.test(clean)) return { valid: false, error: 'Username can only contain letters, numbers, underscores, and hyphens.' };
+  const trimmed = username.trim().toLowerCase();
+  
+  if (trimmed.length < 3 || trimmed.length > 30) {
+    return { valid: false, error: 'Username must be between 3 and 30 characters.' };
+  }
+
+  if (!/^[a-z0-9_-]+$/.test(trimmed)) {
+    return { valid: false, error: 'Only lowercase letters, numbers, dashes, and underscores.' };
+  }
+
+  if (/^[-_]|[-_]$/.test(trimmed)) {
+    return { valid: false, error: 'Username cannot start or end with a dash or underscore.' };
+  }
+
+  if (isReservedUsername(trimmed)) {
+    return { valid: false, error: 'This username is reserved.' };
+  }
+
   return { valid: true };
 }

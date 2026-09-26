@@ -1,26 +1,33 @@
 import React from 'react';
+import { User, LinkItem, AnalyticsEvent } from '../../types';
+import { StatCard } from './StatCard';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Button } from '../ui/button';
+import { CopyButton } from '../shared/CopyButton';
+import { EmptyState } from '../shared/EmptyState';
 import {
   Link2,
-  BarChart3,
   Eye,
   MousePointerClick,
+  TrendingUp,
   Plus,
   Palette,
-  QrCode,
+  BarChart3,
   ExternalLink,
   Share2,
   Sparkles,
-  ArrowUpRight,
+  Activity,
+  QrCode,
 } from 'lucide-react';
-import { User, LinkItem, AnalyticsEvent } from '../../types';
-import { StorageService } from '../../lib/storage';
-import { getSiteUrl, getSiteDomain } from '../../lib/site';
+import { buildPatternDisplayUrl, buildPatternUrl } from '../../lib/username-patterns';
+import { getSiteUrl } from '../../lib/site';
+import { BRAND } from '../../lib/constants';
 
-interface OverviewPageProps {
+export interface OverviewPageProps {
   user: User;
   links: LinkItem[];
   analytics: AnalyticsEvent[];
-  onNavigateTab: (tab: string) => void;
+  onNavigateTab: (tabId: string) => void;
   onViewPublic: () => void;
   onOpenShareModal: () => void;
 }
@@ -28,215 +35,248 @@ interface OverviewPageProps {
 export const OverviewPage: React.FC<OverviewPageProps> = ({
   user,
   links,
+  analytics,
   onNavigateTab,
   onViewPublic,
   onOpenShareModal,
 }) => {
-  const summary = StorageService.getAnalyticsSummary(7);
+  const totalViews = analytics.filter((e) => e.event === 'view').length;
+  const totalClicks = links.reduce((acc, curr) => acc + (curr.clicks || 0), 0);
+  const clickRate = totalViews > 0 ? `${((totalClicks / totalViews) * 100).toFixed(1)}%` : '0.0%';
+
+  const siteUrl = getSiteUrl();
+  const fullPublicUrl = buildPatternUrl(user.sharePattern || '{username}', user.username, siteUrl);
+  const displayPublicUrl = buildPatternDisplayUrl(user.sharePattern || '{username}', user.username, siteUrl);
+
+  const recentEvents = [...analytics]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   return (
-    <div className="space-y-8 w-full font-sans">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 p-8 text-white shadow-xl">
+    <div className="space-y-8 animate-in fade-in duration-200 font-sans">
+      {/* Welcome Card */}
+      <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/80 p-6 sm:p-8 shadow-xs">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-indigo-200 text-xs font-bold border border-white/15">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Welcome Back, {user.name || 'Creator'}!</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Your page is live &amp; ready to share
-            </h2>
-            <p className="text-indigo-200/90 text-xs sm:text-sm leading-relaxed">
-              Consolidate all your links, portfolio, and digital presence into one unified link page.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
-              onClick={() => onNavigateTab('links')}
-              className="px-5 py-3 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-extrabold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 text-indigo-600" />
-              <span>Add New Link</span>
-            </button>
-            <button
-              onClick={onViewPublic}
-              className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Preview Page</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Decorative background shapes */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-      </div>
-
-      {/* Analytics Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Views</span>
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-              <Eye className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{summary.totalViews.toLocaleString()}</p>
-          <p className="text-[11px] font-semibold text-slate-400">Past 7 days profile views</p>
-        </div>
-
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Clicks</span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <MousePointerClick className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{summary.totalClicks.toLocaleString()}</p>
-          <p className="text-[11px] font-semibold text-slate-400">Past 7 days link clicks</p>
-        </div>
-
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">CTR</span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-              <BarChart3 className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{summary.clickRate}%</p>
-          <p className="text-[11px] font-semibold text-slate-400">Click-through rate</p>
-        </div>
-
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Links</span>
-            <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-              <Link2 className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{links.filter((l) => l.visible).length}</p>
-          <p className="text-[11px] font-semibold text-slate-400">Published on your profile</p>
-        </div>
-      </div>
-
-      {/* Quick Action Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <button
-          onClick={() => onNavigateTab('links')}
-          className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-all text-left group cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Link2 className="w-5 h-5" />
-          </div>
-          <h3 className="text-sm font-extrabold text-slate-900 flex items-center justify-between">
-            <span>Manage Links</span>
-            <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Add, reorder, or edit your social profiles &amp; bio links.
-          </p>
-        </button>
-
-        <button
-          onClick={() => onNavigateTab('appearance')}
-          className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-all text-left group cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Palette className="w-5 h-5" />
-          </div>
-          <h3 className="text-sm font-extrabold text-slate-900 flex items-center justify-between">
-            <span>Themes &amp; Styling</span>
-            <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-transform" />
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Choose from 48 crafted themes, fonts, colors, and button shapes.
-          </p>
-        </button>
-
-        <button
-          onClick={() => onNavigateTab('qr-code')}
-          className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-all text-left group cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <QrCode className="w-5 h-5" />
-          </div>
-          <h3 className="text-sm font-extrabold text-slate-900 flex items-center justify-between">
-            <span>Vector QR Code</span>
-            <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Generate high-resolution PNG &amp; vector SVG QR codes.
-          </p>
-        </button>
-      </div>
-
-      {/* Recent Links Overview */}
-      <div className="p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Your Active Links</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Quick view of published links on your page</p>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold mb-3">
+              <Sparkles size={13} className="text-emerald-600" />
+              <span>{BRAND.planLabel}</span>
+              <span className="font-normal text-emerald-600">({BRAND.badge})</span>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              Welcome back, {user.name || 'Creator'}!
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl font-normal">
+              Your LinkVM creator page is live, optimized, and ready to share with your audience worldwide.
+            </p>
+
+            {/* Public URL Box */}
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono font-medium text-slate-800">
+                <span>{displayPublicUrl}</span>
+              </div>
+              <CopyButton textToCopy={fullPublicUrl} variant="outline" className="border-slate-200 hover:bg-slate-50 text-xs" />
+            </div>
           </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={onViewPublic}
+              variant="outline"
+              size="md"
+              className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5 cursor-pointer"
+            >
+              <span>View Page</span>
+              <ExternalLink size={14} />
+            </Button>
+            <Button
+              onClick={onOpenShareModal}
+              variant="primary"
+              size="md"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 shadow-sm shadow-indigo-600/20 cursor-pointer"
+            >
+              <Share2 size={14} />
+              <span>Share Link</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Stat Cards - Real Data from DB or 0 Empty */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <StatCard
+          title="Total Links"
+          value={links.length}
+          change={links.length === 0 ? '0 — No data yet' : `${links.length} active links`}
+          isPositive={links.length > 0}
+          icon={<Link2 size={20} />}
+          description="Active in your bio"
+        />
+        <StatCard
+          title="Total Views"
+          value={totalViews === 0 ? '0' : totalViews.toLocaleString()}
+          change={totalViews === 0 ? '0 — No data yet' : 'Real-time verified'}
+          isPositive={totalViews > 0}
+          icon={<Eye size={20} />}
+          description="Total page visits"
+        />
+        <StatCard
+          title="Total Clicks"
+          value={totalClicks === 0 ? '0' : totalClicks.toLocaleString()}
+          change={totalClicks === 0 ? '0 — No data yet' : 'Outbound clicks'}
+          isPositive={totalClicks > 0}
+          icon={<MousePointerClick size={20} />}
+          description="Total link clicks"
+        />
+        <StatCard
+          title="Click Rate"
+          value={clickRate}
+          change={totalViews === 0 ? '0 — No data yet' : 'Conversion rate'}
+          isPositive={totalViews > 0}
+          icon={<TrendingUp size={20} />}
+          description="CTR conversion"
+        />
+      </div>
+
+      {/* Quick Actions (4 cards: Links, Appearance, QR Code, Analytics) */}
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+          Quick Actions
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
+            type="button"
             onClick={() => onNavigateTab('links')}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+            className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-indigo-300 transition-all flex items-center gap-4 text-left group cursor-pointer"
           >
-            View All ({links.length})
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+              <Plus size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Add New Link
+              </h4>
+              <p className="text-xs text-slate-500">60+ Lucide icons & styling</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('appearance')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-indigo-300 transition-all flex items-center gap-4 text-left group cursor-pointer"
+          >
+            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors shrink-0">
+              <Palette size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Customize Theme
+              </h4>
+              <p className="text-xs text-slate-500">34 free presets &amp; live preview</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('qr-code')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-indigo-300 transition-all flex items-center gap-4 text-left group cursor-pointer"
+          >
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors shrink-0">
+              <QrCode size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Vector QR Code
+              </h4>
+              <p className="text-xs text-slate-500">Custom colors &amp; SVG download</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('analytics')}
+            className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-indigo-300 transition-all flex items-center gap-4 text-left group cursor-pointer"
+          >
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
+              <BarChart3 size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                View Analytics
+              </h4>
+              <p className="text-xs text-slate-500">Referrer traffic &amp; conversion</p>
+            </div>
           </button>
         </div>
-
-        {links.length === 0 ? (
-          <div className="py-8 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
-              <Link2 className="w-6 h-6" />
-            </div>
-            <p className="text-xs font-bold text-slate-700">No links added yet</p>
-            <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-              Click below to add your first social profile or portfolio link.
-            </p>
-            <button
-              onClick={() => onNavigateTab('links')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Your First Link</span>
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {links.slice(0, 5).map((lnk) => (
-              <div
-                key={lnk.id}
-                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
-                    <Link2 className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">{lnk.title}</p>
-                    <p className="text-[11px] font-mono text-slate-400 truncate">{lnk.url}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {lnk.clicks || 0} clicks
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      lnk.visible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {lnk.visible ? 'Visible' : 'Hidden'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Recent Activity Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle>Recent Activity</CardTitle>
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">Real-time engagement from your public bio page</p>
+          </div>
+          {recentEvents.length > 0 && (
+            <Button
+              onClick={() => onNavigateTab('analytics')}
+              variant="ghost"
+              size="sm"
+              className="text-xs text-indigo-600 font-semibold cursor-pointer"
+            >
+              Full Analytics →
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {recentEvents.length === 0 ? (
+            <div className="py-6">
+              <EmptyState
+                icon={<Activity size={32} className="text-slate-400" />}
+                title="No activity yet"
+                description="Share your LinkVM profile to start recording live views, clicks, and analytics."
+                actionLabel="View Public Page"
+                onAction={onViewPublic}
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {recentEvents.map((ev) => (
+                <div key={ev.id} className="py-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                        ev.event === 'click'
+                          ? 'bg-indigo-50 text-indigo-600'
+                          : 'bg-emerald-50 text-emerald-600'
+                      }`}
+                    >
+                      {ev.event === 'click' ? (
+                        <MousePointerClick size={14} />
+                      ) : (
+                        <Eye size={14} />
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        {ev.event === 'click' ? 'Link clicked' : 'Profile viewed'}
+                      </span>
+                      <span className="text-slate-400 ml-2">
+                        via {ev.referrer || 'Direct'} ({ev.device || 'Desktop'})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-slate-400 font-mono text-[11px]">
+                    {new Date(ev.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

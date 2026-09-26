@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Link2,
@@ -6,14 +6,22 @@ import {
   BarChart3,
   QrCode,
   Settings,
-  HelpCircle,
+  BookOpen,
   ExternalLink,
+  Copy,
+  Check,
   LogOut,
-  Sparkles,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { User } from '../../types';
 import { Logo } from '../shared/Logo';
-import { getSiteDomain } from '../../lib/site';
+import { copyToClipboard } from '../../lib/utils';
+import { getSiteUrl } from '../../lib/site';
+import { BRAND } from '../../lib/constants';
+import { buildPatternDisplayUrl, buildPatternUrl } from '../../lib/username-patterns';
+import { PatternList } from './PatternList';
+import { StorageService } from '../../lib/storage';
 
 interface SidebarProps {
   currentTab: string;
@@ -32,73 +40,148 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   onViewPublic,
 }) => {
-  const NAV_ITEMS = [
+  const [copied, setCopied] = useState(false);
+  const [showPatternPopover, setShowPatternPopover] = useState(false);
+
+  const siteUrl = getSiteUrl();
+  const sharePattern = user.sharePattern || '{username}';
+  const fullPublicUrl = buildPatternUrl(sharePattern, user.username, siteUrl);
+  const displayUrl = buildPatternDisplayUrl(sharePattern, user.username);
+
+  const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'links', label: 'My Links', icon: Link2, badge: linksCount },
-    { id: 'appearance', label: 'Appearance', icon: Palette, badge: '48 Themes' },
+    { id: 'links', label: 'Links', icon: Link2, badge: linksCount > 0 ? String(linksCount) : undefined },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'qr-code', label: 'Vector QR Code', icon: QrCode },
+    { id: 'qr-code', label: 'QR Code', icon: QrCode },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'guide', label: 'Guide & FAQ', icon: HelpCircle },
+    { id: 'guide', label: 'Guide & About', icon: BookOpen },
   ];
 
+  const handleCopyUrl = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const success = await copyToClipboard(fullPublicUrl);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSetDefaultPattern = (pattern: string) => {
+    StorageService.updateUser({ sharePattern: pattern });
+    setShowPatternPopover(false);
+    // Trigger quick page reload / state refresh via window event if needed
+    window.dispatchEvent(new Event('storage'));
+  };
+
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col h-full font-sans select-none">
+    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col h-screen select-none shrink-0 z-30 relative">
       {/* Brand Header */}
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-        <Logo size="md" />
+      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <Logo size="md" showSubtitle={true} />
       </div>
 
-      {/* Profile quick preview banner */}
-      <div className="p-4 mx-4 mt-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shrink-0">
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.name || user.username} className="w-full h-full rounded-xl object-cover" />
-          ) : (
-            (user.name || user.username || 'C').charAt(0).toUpperCase()
-          )}
+      {/* Public URL Mini-Card */}
+      <div className="p-3.5 mx-3 my-3 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs relative">
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Your Public Page
+          </span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+            Live
+          </span>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-slate-900 truncate">{user.name || 'Creator'}</p>
-          <p className="text-[11px] font-semibold text-indigo-600 truncate">@{user.username}</p>
+
+        <div className="flex items-center justify-between gap-1 mt-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-800 truncate font-mono" title={fullPublicUrl}>
+            {displayUrl}
+          </span>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={handleCopyUrl}
+              className="p-1 text-slate-400 hover:text-slate-900 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Copy URL"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={onViewPublic}
+              className="p-1 text-slate-400 hover:text-slate-900 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Open public page"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => setShowPatternPopover(!showPatternPopover)}
+              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                showPatternPopover ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title="Alternative URLs & Share Patterns"
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPatternPopover ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
-        <button
-          onClick={onViewPublic}
-          title="View public page"
-          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all cursor-pointer"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </button>
+
+        {/* Alternative URLs Popover */}
+        {showPatternPopover && (
+          <div className="absolute top-full left-0 right-0 mt-2 z-50 p-3 rounded-2xl bg-white border border-slate-200 shadow-2xl space-y-3 w-[280px]">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">Alternative URLs</h4>
+                <p className="text-[10px] text-slate-500">Same profile, different ways to share.</p>
+              </div>
+              <button
+                onClick={() => setShowPatternPopover(false)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="max-h-[260px] overflow-y-auto pr-1">
+              <PatternList
+                username={user.username}
+                currentPattern={sharePattern}
+                onSetDefault={handleSetDefaultPattern}
+                compact={true}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
-        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-3 mb-2">
-          Dashboard Menu
-        </div>
-        {NAV_ITEMS.map((item) => {
+      {/* Navigation List (Exactly 7 items) */}
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto py-1">
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group cursor-pointer ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <Icon
+                  className={`w-4 h-4 transition-colors ${
+                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                  }`}
+                />
                 <span>{item.label}</span>
               </div>
-              {item.badge !== undefined && (
+              {item.badge && (
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     isActive
                       ? 'bg-white/20 text-white'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200/60'
+                      : 'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}
                 >
                   {item.badge}
@@ -109,25 +192,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Footer Banner & Logout */}
-      <div className="p-4 border-t border-slate-100 space-y-3">
-        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50 to-slate-50 border border-indigo-100/80">
-          <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-indigo-700">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-            <span>100% Free Forever</span>
+      {/* Plan Card & Footer */}
+      <div className="p-3.5 border-t border-slate-100 space-y-3">
+        {/* Free Forever badge card */}
+        <div className="p-3 rounded-2xl bg-slate-900 text-white shadow-xs">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-extrabold text-slate-200">
+              {BRAND.planLabel}
+            </span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-white ring-1 ring-white/20">
+              100% Free
+            </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">
-            All themes, analytics, and features are completely unlocked.
+          <p className="text-[11px] text-slate-300 leading-snug">
+            All themes, vector QR codes, and unlimited links unlocked.
           </p>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
-        </button>
+        {/* User profile & Logout */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name || user.username}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-800 truncate">{user.name || user.username}</p>
+              <p className="text-[10px] text-slate-400 truncate">@{user.username}</p>
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+            title="Log out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

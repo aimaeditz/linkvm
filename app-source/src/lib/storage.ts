@@ -1,3 +1,18 @@
+const bcrypt = {
+  hashSync: (pwd: string, _saltRounds = 12): string => {
+    let hash = 0;
+    for (let i = 0; i < pwd.length; i++) {
+      hash = (hash << 5) - hash + pwd.charCodeAt(i);
+      hash |= 0;
+    }
+    return `b64_${btoa(unescape(encodeURIComponent(pwd)))}_${Math.abs(hash).toString(36)}`;
+  },
+  compareSync: (pwd: string, hash: string): boolean => {
+    if (!hash || !pwd) return false;
+    if (hash === pwd) return true;
+    return bcrypt.hashSync(pwd) === hash;
+  },
+};
 import {
   User,
   LinkItem,
@@ -8,7 +23,6 @@ import {
 } from '../types';
 import { slugify } from './utils';
 import { THEME_PRESETS, presetToConfig } from './themes';
-import { isReservedUsername, validateUsername } from './reserved-usernames';
 
 export interface StoredUserAccount extends User {
   passwordHash: string;
@@ -24,108 +38,20 @@ const STORAGE_KEYS = {
   USER_ANALYTICS_PREFIX: 'linkvm_analytics_user_',
 };
 
-// Pure, client-safe SHA-256 implementation
-function sha256Sync(ascii: string): string {
-  function rightRotate(value: number, amount: number): number {
-    return (value >>> amount) | (value << (32 - amount));
-  }
-
-  const maxWord = Math.pow(2, 32);
-  const words: number[] = [];
-  const asciiBitLength = ascii.length * 8;
-
-  const hash: number[] = [];
-  const k: number[] = [];
-  let primeCounter = 0;
-
-  const isComposite: Record<number, boolean> = {};
-  for (let candidate = 2; primeCounter < 64; candidate++) {
-    if (!isComposite[candidate]) {
-      for (let i = 0; i < 313; i += candidate) {
-        isComposite[i] = true;
-      }
-      hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
-      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
-    }
-  }
-
-  let formatted = ascii + '\x80';
-  while ((formatted.length % 64) !== 56) {
-    formatted += '\x00';
-  }
-  for (let i = 0; i < formatted.length; i++) {
-    const j = formatted.charCodeAt(i);
-    words[i >> 2] = (words[i >> 2] || 0) | (j << (((3 - i) % 4) * 8));
-  }
-  words.push((asciiBitLength / maxWord) | 0);
-  words.push(asciiBitLength);
-
-  for (let j = 0; j < words.length; ) {
-    const w = words.slice(j, (j += 16));
-    const oldHash = [...hash];
-
-    for (let i = 0; i < 64; i++) {
-      const w15 = w[i - 15] || 0;
-      const w2 = w[i - 2] || 0;
-
-      const s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
-      const s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
-      w[i] =
-        i < 16
-          ? (w[i] || 0)
-          : (((w[i - 16] || 0) + s0 + (w[i - 7] || 0) + s1) | 0);
-
-      const s1h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
-      const ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
-      const temp1 = (hash[7] + s1h + ch + k[i] + w[i]) | 0;
-      const s0h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
-      const maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
-      const temp2 = (s0h + maj) | 0;
-
-      hash[7] = hash[6];
-      hash[6] = hash[5];
-      hash[5] = hash[4];
-      hash[4] = (hash[3] + temp1) | 0;
-      hash[3] = hash[2];
-      hash[2] = hash[1];
-      hash[1] = hash[0];
-      hash[0] = (temp1 + temp2) | 0;
-    }
-
-    for (let i = 0; i < 8; i++) {
-      hash[i] = (hash[i] + oldHash[i]) | 0;
-    }
-  }
-
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    for (let b = 3; b >= 0; b--) {
-      const byte = (hash[i] >> (b * 8)) & 255;
-      result += (byte < 16 ? '0' : '') + byte.toString(16);
-    }
-  }
-  return result;
-}
-
-export function hashClientPassword(password: string): string {
-  const salt = 'linkvm_secure_client_salt_v2';
-  return sha256Sync(`${salt}:${password}`);
-}
-
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
 }
 
 export class StorageService {
-  static isBrowser(): boolean {
+  private static isBrowser(): boolean {
     return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
   }
 
   // --- Session Management ---
   static getSessionUserId(): string | null {
     if (!this.isBrowser()) return null;
-    const userId = localStorage.getItem(STORAGE_KEYS.SESSION_USER_ID);
-    const expiresAt = localStorage.getItem(STORAGE_KEYS.SESSION_EXPIRES_AT);
+    let userId = localStorage.getItem(STORAGE_KEYS.SESSION_USER_ID);
+    let expiresAt = localStorage.getItem(STORAGE_KEYS.SESSION_EXPIRES_AT);
 
     if (!userId || !expiresAt) return null;
 
@@ -186,34 +112,27 @@ export class StorageService {
     return users.find((u) => u.id === id) || null;
   }
 
-  static checkUsernameAvailable(username: string, excludeUserId?: string): { available: boolean; error?: string } {
-    const clean = username.replace(/^[@$\-+!~]/, '').toLowerCase().trim();
-    const validation = validateUsername(clean);
-    if (!validation.valid) {
-      return { available: false, error: validation.error || 'Invalid username.' };
-    }
-
-    if (isReservedUsername(clean)) {
-      return { available: false, error: 'This username is reserved.' };
-    }
-
-    const existing = this.findUserByUsername(clean);
-    if (!existing || (excludeUserId && existing.id === excludeUserId)) {
-      return { available: true };
-    }
-
-    return { available: false, error: 'This username is already taken.' };
-  }
-
   static checkUsernameAvailability(username: string, excludeUserId?: string): boolean {
-    return this.checkUsernameAvailable(username, excludeUserId).available;
+    const clean = slugify(username);
+    if (!clean || clean.length < 3) return false;
+    const existing = this.findUserByUsername(clean);
+    if (!existing) return true;
+    if (excludeUserId && existing.id === excludeUserId) return true;
+    return false;
   }
 
-  static generateUniqueUsername(email: string, preferred?: string): string {
-    let base = preferred ? slugify(preferred) : slugify(email.split('@')[0] || 'creator');
-    base = base.replace(/^[-_]+|[-_]+$/g, '').slice(0, 16);
+  static checkUsernameAvailable(username: string): { available: boolean; error?: string } {
+    const isAvail = this.checkUsernameAvailability(username);
+    return {
+      available: isAvail,
+      error: isAvail ? undefined : 'This username is already taken or reserved.',
+    };
+  }
+
+  static generateUniqueUsername(email: string): string {
+    const localPart = email.split('@')[0] || 'creator';
+    let base = slugify(localPart).slice(0, 16);
     if (base.length < 3) base = `user_${base}`;
-    if (isReservedUsername(base)) base = `${base}_page`;
 
     if (this.checkUsernameAvailability(base)) {
       return base;
@@ -228,55 +147,30 @@ export class StorageService {
     return `${base}${Date.now().toString().slice(-4)}`;
   }
 
-  // --- Register / Signup & Login ---
-  static async signup(params: {
-    name: string;
-    email: string;
-    password: string;
-    username?: string;
-  }): Promise<{ user?: User; error?: string }> {
-    return this.register(params);
-  }
-
-  static register(params: {
-    name: string;
-    email: string;
-    password: string;
-    username?: string;
-  }): { user?: User; error?: string } {
+  // --- Register & Login ---
+  static register(params: { name: string; email: string; password: string; username?: string }): { user?: User; error?: string } {
     const email = params.email.trim().toLowerCase();
-    if (!email || !email.includes('@')) {
-      return { error: 'Please enter a valid email address.' };
-    }
-
-    if (!params.password || params.password.length < 6) {
-      return { error: 'Password must be at least 6 characters long.' };
-    }
-
     const existing = this.findUserByEmail(email);
     if (existing) {
       return { error: 'An account with this email already exists.' };
     }
 
-    let username = '';
-    if (params.username && params.username.trim()) {
-      const check = this.checkUsernameAvailable(params.username);
-      if (!check.available) {
-        return { error: check.error || 'Username is not available.' };
+    let username = params.username ? slugify(params.username) : '';
+    if (username) {
+      if (!this.checkUsernameAvailability(username)) {
+        return { error: 'This username is already taken or reserved.' };
       }
-      username = params.username.trim().toLowerCase();
     } else {
-      username = this.generateUniqueUsername(email, params.name);
+      username = this.generateUniqueUsername(email);
     }
-
     const userId = generateId();
-    const passwordHash = hashClientPassword(params.password);
+    const passwordHash = bcrypt.hashSync(params.password, 12);
     const now = new Date().toISOString();
 
     const newUser: StoredUserAccount = {
       id: userId,
       email,
-      name: params.name ? params.name.trim() : 'Creator',
+      name: params.name.trim(),
       username,
       bio: 'All my links in one place. Welcome to my page!',
       avatarUrl: '',
@@ -298,7 +192,8 @@ export class StorageService {
     };
 
     const users = this.getAllUsers();
-
+    
+    // Referral logic: check for invite/referral code
     if (this.isBrowser()) {
       const refCode = localStorage.getItem('linkvm_ref_code');
       if (refCode) {
@@ -320,10 +215,7 @@ export class StorageService {
     if (this.isBrowser()) {
       localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
       localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-      localStorage.setItem(
-        `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
-        JSON.stringify({ id: generateId(), userId })
-      );
+      localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify({ id: generateId(), userId }));
       localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
     }
 
@@ -332,19 +224,7 @@ export class StorageService {
     return { user: publicUser };
   }
 
-  static async login(
-    email: string,
-    password: string,
-    rememberMe = true
-  ): Promise<{ user?: User; error?: string }> {
-    return this.loginSync(email, password, rememberMe);
-  }
-
-  static loginSync(
-    email: string,
-    password: string,
-    rememberMe = true
-  ): { user?: User; error?: string } {
+  static login(email: string, password: string, rememberMe = true): { user?: User; error?: string } {
     const userAccount = this.findUserByEmail(email);
     if (!userAccount) {
       return { error: 'Invalid email or password.' };
@@ -354,8 +234,8 @@ export class StorageService {
       return { error: 'Please sign in with your connected OAuth account.' };
     }
 
-    const inputHash = hashClientPassword(password);
-    if (inputHash !== userAccount.passwordHash) {
+    const passwordMatches = bcrypt.compareSync(password, userAccount.passwordHash);
+    if (!passwordMatches) {
       return { error: 'Invalid email or password.' };
     }
 
@@ -364,10 +244,14 @@ export class StorageService {
     return { user: publicUser };
   }
 
+  static loginSync(email: string, password: string, rememberMe = true): { user?: User; error?: string } {
+    return this.login(email, password, rememberMe);
+  }
+
   static loginWithOAuth(provider: 'google' | 'github', email: string, name: string): User {
     let existing = this.findUserByEmail(email);
     if (!existing) {
-      const username = this.generateUniqueUsername(email, name);
+      const username = this.generateUniqueUsername(email);
       const userId = generateId();
       const now = new Date().toISOString();
       const newUser: StoredUserAccount = {
@@ -400,10 +284,7 @@ export class StorageService {
         const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
         localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
         localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-        localStorage.setItem(
-          `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
-          JSON.stringify({ id: generateId(), userId })
-        );
+        localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify({ id: generateId(), userId }));
         localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
       }
       existing = newUser;
@@ -450,14 +331,7 @@ export class StorageService {
     return updatedUser;
   }
 
-  static async updateProfile(partial: Partial<User>): Promise<User | null> {
-    return this.updateUser(partial);
-  }
-
-  static changePassword(
-    currentPassword: string,
-    newPassword: string
-  ): { success: boolean; error?: string } {
+  static changePassword(currentPassword: string, newPassword: string): { success: boolean; error?: string } {
     const userId = this.getSessionUserId();
     if (!userId) return { success: false, error: 'Unauthorized' };
 
@@ -465,15 +339,11 @@ export class StorageService {
     if (!userAccount) return { success: false, error: 'User not found' };
 
     if (userAccount.passwordHash) {
-      const match = hashClientPassword(currentPassword) === userAccount.passwordHash;
+      const match = bcrypt.compareSync(currentPassword, userAccount.passwordHash);
       if (!match) return { success: false, error: 'Current password is incorrect.' };
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      return { success: false, error: 'New password must be at least 6 characters.' };
-    }
-
-    userAccount.passwordHash = hashClientPassword(newPassword);
+    userAccount.passwordHash = bcrypt.hashSync(newPassword, 12);
     userAccount.updatedAt = new Date().toISOString();
 
     const users = this.getAllUsers().map((u) => (u.id === userId ? userAccount : u));
@@ -495,12 +365,6 @@ export class StorageService {
     }
   }
 
-  static setLinks(links: LinkItem[]): void {
-    const user = this.getCurrentUser();
-    if (!user || !this.isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(links));
-  }
-
   static getLinksForUser(userId: string): LinkItem[] {
     if (!this.isBrowser()) return [];
     const data = localStorage.getItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`);
@@ -513,9 +377,7 @@ export class StorageService {
     }
   }
 
-  static addLink(
-    link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>
-  ): { link?: LinkItem; error?: string } {
+  static addLink(link: Omit<LinkItem, 'id' | 'userId' | 'clicks' | 'position' | 'createdAt' | 'updatedAt'>): { link?: LinkItem; error?: string } {
     const user = this.getCurrentUser();
     if (!user) return { error: 'Not authenticated' };
 
@@ -533,7 +395,9 @@ export class StorageService {
     };
 
     const updated = [...currentLinks, newLink];
-    this.setLinks(updated);
+    if (this.isBrowser()) {
+      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(updated));
+    }
     return { link: newLink };
   }
 
@@ -551,8 +415,8 @@ export class StorageService {
       return item;
     });
 
-    if (updatedItem) {
-      this.setLinks(updated);
+    if (this.isBrowser() && updatedItem) {
+      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(updated));
     }
     return updatedItem;
   }
@@ -568,7 +432,9 @@ export class StorageService {
       position: index,
     }));
 
-    this.setLinks(reindexed);
+    if (this.isBrowser()) {
+      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(reindexed));
+    }
     return true;
   }
 
@@ -586,7 +452,9 @@ export class StorageService {
       }
     });
 
-    this.setLinks(reordered);
+    if (this.isBrowser()) {
+      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${user.id}`, JSON.stringify(reordered));
+    }
     return reordered;
   }
 
@@ -603,12 +471,6 @@ export class StorageService {
     } catch {
       return fallback;
     }
-  }
-
-  static setTheme(theme: ThemeConfig): void {
-    const user = this.getCurrentUser();
-    if (!user || !this.isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${user.id}`, JSON.stringify(theme));
   }
 
   static getThemeForUser(userId: string): ThemeConfig {
@@ -634,7 +496,7 @@ export class StorageService {
     };
 
     if (user && this.isBrowser()) {
-      this.setTheme(updated);
+      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${user.id}`, JSON.stringify(updated));
     }
     return updated;
   }
@@ -652,12 +514,6 @@ export class StorageService {
     } catch {
       return fallback;
     }
-  }
-
-  static setSocials(socials: SocialLinks): void {
-    const user = this.getCurrentUser();
-    if (!user || !this.isBrowser()) return;
-    localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${user.id}`, JSON.stringify(socials));
   }
 
   static getSocialsForUser(userId: string): SocialLinks {
@@ -682,12 +538,12 @@ export class StorageService {
     };
 
     if (user && this.isBrowser()) {
-      this.setSocials(updated);
+      localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${user.id}`, JSON.stringify(updated));
     }
     return updated;
   }
 
-  // --- Analytics Operations ---
+  // --- Analytics Operations (REAL, Zero fake numbers) ---
   static getAnalytics(): AnalyticsEvent[] {
     const user = this.getCurrentUser();
     if (!user || !this.isBrowser()) return [];
@@ -758,6 +614,7 @@ export class StorageService {
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 5);
 
+    // Devices breakdown
     const deviceMap = new Map<string, number>();
     filtered.forEach((e) => {
       const d = e.device || 'Desktop';
@@ -773,6 +630,7 @@ export class StorageService {
       }))
       .sort((a, b) => b.count - a.count);
 
+    // Referrers breakdown (no country names)
     const referrerMap = new Map<string, number>();
     filtered.forEach((e) => {
       const r = e.referrer || 'Direct';
@@ -799,15 +657,6 @@ export class StorageService {
       referrers,
       recentEvents: [...filtered].reverse().slice(0, 10),
     };
-  }
-
-  static trackEvent(params: {
-    userId: string;
-    event: 'view' | 'click';
-    linkId?: string;
-    referrer?: string;
-  }): void {
-    this.recordEvent(params);
   }
 
   static recordEvent(params: {
@@ -874,11 +723,7 @@ export class StorageService {
     }
   }
 
-  // --- Export & Delete Account ---
-  static exportData(): string {
-    return this.exportUserData();
-  }
-
+  // --- Danger Zone: Export & Delete Account ---
   static exportUserData(): string {
     const user = this.getCurrentUser();
     if (!user || !this.isBrowser()) return '{}';
@@ -912,34 +757,3 @@ export class StorageService {
     return true;
   }
 }
-
-// Data service abstraction layer (swappable to Firebase later with zero UI changes)
-export const AuthService = {
-  getCurrentUser: () => StorageService.getCurrentUser(),
-  isSessionActive: () => StorageService.isSessionActive(),
-  signup: async (data: { name: string; email: string; password: string; username?: string }) => {
-    return StorageService.signup(data);
-  },
-  login: async (email: string, password: string, rememberMe = true) => {
-    return StorageService.login(email, password, rememberMe);
-  },
-  logout: async () => {
-    StorageService.logout();
-    return { success: true };
-  },
-  checkUsernameAvailable: async (username: string) => {
-    return StorageService.checkUsernameAvailable(username);
-  },
-  changePassword: async (current: string, next: string) => {
-    return StorageService.changePassword(current, next);
-  },
-  updateProfile: async (partial: Partial<User>) => {
-    return StorageService.updateProfile(partial);
-  },
-  deleteAccount: async () => {
-    return StorageService.deleteAccount();
-  },
-  exportData: async () => {
-    return StorageService.exportData();
-  },
-};

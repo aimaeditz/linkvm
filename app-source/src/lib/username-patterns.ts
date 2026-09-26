@@ -1,5 +1,5 @@
 // Utility helpers for alternative URL patterns under dynamic site URL
-import { getSiteUrl, getSiteDomain } from './site';
+import { getSiteUrl } from './site';
 
 export interface PatternItem {
   id: string;
@@ -9,72 +9,64 @@ export interface PatternItem {
   description: string;
 }
 
-export function getPatternsList(): PatternItem[] {
-  const domain = getSiteDomain();
-  const baseHost = domain.split('/')[0] || domain;
-
-  return [
-    {
-      id: 'standard',
-      pattern: '{username}',
-      label: 'Standard',
-      example: `${domain}/username`,
-      description: 'Clean direct path',
-    },
-    {
-      id: 'at',
-      pattern: '@{username}',
-      label: 'At-Symbol (@)',
-      example: `${domain}/@username`,
-      description: 'Social handle style',
-    },
-    {
-      id: 'dollar',
-      pattern: '${username}',
-      label: 'Dollar ($)',
-      example: `${domain}/$username`,
-      description: 'Creator / cashtag style',
-    },
-    {
-      id: 'dash',
-      pattern: '-{username}',
-      label: 'Dash (-)',
-      example: `${domain}/-username`,
-      description: 'Minimal prefix',
-    },
-    {
-      id: 'plus',
-      pattern: '+{username}',
-      label: 'Plus (+)',
-      example: `${domain}/+username`,
-      description: 'Positive badge style',
-    },
-    {
-      id: 'exclamation',
-      pattern: '!{username}',
-      label: 'Exclamation (!)',
-      example: `${domain}/!username`,
-      description: 'Bold priority style',
-    },
-    {
-      id: 'tilde',
-      pattern: '~{username}',
-      label: '~Tilde (~)',
-      example: `${domain}/~username`,
-      description: 'Developer / home dir style',
-    },
-    {
-      id: 'subdomain',
-      pattern: '{username}.subdomain',
-      label: 'Short Subdomain',
-      example: `username.${baseHost}`,
-      description: 'Direct subdomain shortcut',
-    },
-  ];
-}
-
-// Export PATTERNS proxy/array for full backwards compatibility
-export const PATTERNS: PatternItem[] = getPatternsList();
+export const PATTERNS: PatternItem[] = [
+  {
+    id: 'standard',
+    pattern: '{username}',
+    label: 'Standard',
+    example: 'linkvm.online/aimaeditz',
+    description: 'Clean direct path',
+  },
+  {
+    id: 'at',
+    pattern: '@{username}',
+    label: 'At-Symbol (@)',
+    example: 'linkvm.online/@aimaeditz',
+    description: 'Social handle style',
+  },
+  {
+    id: 'dollar',
+    pattern: '${username}',
+    label: 'Dollar ($)',
+    example: 'linkvm.online/$aimaeditz',
+    description: 'Creator / cashtag style',
+  },
+  {
+    id: 'dash',
+    pattern: '-{username}',
+    label: 'Dash (-)',
+    example: 'linkvm.online/-aimaeditz',
+    description: 'Minimal prefix',
+  },
+  {
+    id: 'plus',
+    pattern: '+{username}',
+    label: 'Plus (+)',
+    example: 'linkvm.online/+aimaeditz',
+    description: 'Positive badge style',
+  },
+  {
+    id: 'exclamation',
+    pattern: '!{username}',
+    label: 'Exclamation (!)',
+    example: 'linkvm.online/!aimaeditz',
+    description: 'Bold priority style',
+  },
+  {
+    id: 'tilde',
+    pattern: '~{username}',
+    label: '~Tilde (~)',
+    example: 'linkvm.online/~aimaeditz',
+    description: 'Developer / home dir style',
+  },
+  {
+    id: 'subdomain',
+    pattern: '{username}.subdomain',
+    label: 'Short Subdomain',
+    example: 'aimaeditz.linkvm.online',
+    description: 'Direct subdomain shortcut',
+  },
+];
 
 export function normalizeUsername(raw: string): string {
   if (!raw) return '';

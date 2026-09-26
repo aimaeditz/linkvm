@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
-import {
-  Plus,
-  Trash2,
-  Edit2,
-  Eye,
-  EyeOff,
-  GripVertical,
-  ExternalLink,
-  Sparkles,
-} from 'lucide-react';
+import { Plus, Search, Link2 } from 'lucide-react';
 import { User, LinkItem } from '../../types';
 import { StorageService } from '../../lib/storage';
+import { LinkCard } from './LinkCard';
 import { LinkFormModal } from './LinkFormModal';
-import { getIconComponent } from './IconPicker';
+import { ProfilePreview } from './ProfilePreview';
+import { MobilePreviewToggle } from './MobilePreviewToggle';
+import { EmptyState } from '../shared/EmptyState';
 
 interface LinksPageProps {
   user: User;
@@ -27,8 +21,12 @@ export const LinksPage: React.FC<LinksPageProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'hidden'>('all');
 
-  const handleCreateOrUpdate = (linkData: {
+  const theme = StorageService.getTheme();
+
+  const handleCreateOrUpdate = (data: {
     title: string;
     url: string;
     icon?: string | null;
@@ -38,13 +36,11 @@ export const LinksPage: React.FC<LinksPageProps> = ({
     animation?: 'none' | 'pulse' | 'bounce' | 'glow';
   }) => {
     if (editingLink) {
-      StorageService.updateLink(editingLink.id, linkData);
+      StorageService.updateLink(editingLink.id, data);
     } else {
-      StorageService.addLink(linkData);
+      StorageService.addLink(data);
     }
     onLinksChange();
-    setModalOpen(false);
-    setEditingLink(null);
   };
 
   const handleDelete = (id: string) => {
@@ -52,134 +48,163 @@ export const LinksPage: React.FC<LinksPageProps> = ({
     onLinksChange();
   };
 
-  const handleToggleVisible = (lnk: LinkItem) => {
-    StorageService.updateLink(lnk.id, { visible: !lnk.visible });
+  const handleToggleVisibility = (id: string, visible: boolean) => {
+    StorageService.updateLink(id, { visible });
     onLinksChange();
   };
 
+  const filteredLinks = links.filter((l) => {
+    if (filter === 'active' && !l.visible) return false;
+    if (filter === 'hidden' && l.visible) return false;
+
+    return (
+      l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      l.url.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
   return (
-    <div className="space-y-6 w-full font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/60">
+    <div className="space-y-6 animate-in fade-in duration-150 w-full min-w-0">
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60 w-full">
         <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            Links &amp; Social Content
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Links &amp; Content
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+              {links.length} Unlimited
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Add unlimited social profiles, websites, video embeds, and portfolio items.
+            Add, edit, reorder, and style all the links displayed on your public page.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingLink(null);
-            setModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl shadow-sm hover:shadow-indigo-600/20 transition-all cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Link</span>
-        </button>
-      </div>
 
-      {/* Links List */}
-      {links.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-12 text-center max-w-md mx-auto space-y-4 shadow-xs">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
-            <Plus className="w-7 h-7" />
-          </div>
-          <h3 className="text-base font-bold text-slate-900">Your page is empty</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Get started by adding your first link. You can add Instagram, YouTube, personal portfolio, or custom URLs!
-          </p>
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => {
               setEditingLink(null);
               setModalOpen(true);
             }}
-            className="px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer shrink-0"
           >
-            Create Your First Link
+            <Plus className="w-4 h-4" />
+            <span>Add New Link</span>
           </button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {links.map((lnk, index) => {
-            const IconComp = getIconComponent(lnk.icon);
-            return (
-              <div
-                key={lnk.id}
-                className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="text-slate-300 hover:text-slate-500 cursor-grab shrink-0 hidden sm:block">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
-                    <IconComp className="w-5 h-5 text-slate-700" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-bold text-slate-900 truncate">{lnk.title}</p>
-                      {lnk.highlighted && (
-                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold">
-                          <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-                          <span>Featured</span>
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">{lnk.url}</p>
-                  </div>
-                </div>
+      </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="hidden md:inline-block text-[11px] font-semibold text-slate-400 mr-2">
-                    {lnk.clicks || 0} clicks
-                  </span>
-
-                  {/* Toggle Visibility */}
-                  <button
-                    onClick={() => handleToggleVisible(lnk)}
-                    title={lnk.visible ? 'Hide from page' : 'Show on page'}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                      lnk.visible
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                        : 'bg-slate-50 text-slate-400 border-slate-200'
-                    }`}
-                  >
-                    {lnk.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-
-                  {/* Edit */}
-                  <button
-                    onClick={() => {
-                      setEditingLink(lnk);
-                      setModalOpen(true);
-                    }}
-                    title="Edit link"
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDelete(lnk.id)}
-                    title="Delete link"
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+      {/* Main Layout: Left Column = Links Controls (full width flexibility), Right Column = Sticky Narrow Phone Preview */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start w-full min-w-0">
+        {/* Left Column: Link Controls */}
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          {/* Search & Filter Bar */}
+          {links.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+              {/* Filter Tabs */}
+              <div className="flex items-center p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    filter === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  All ({links.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter('active')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    filter === 'active'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Active ({links.filter((l) => l.visible).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter('hidden')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    filter === 'hidden'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Hidden ({links.filter((l) => !l.visible).length})
+                </button>
               </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Modal */}
+              <div className="relative w-full sm:w-48">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search links..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:border-slate-900 transition"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Links List */}
+          <div className="space-y-3">
+            {links.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center shadow-xs">
+                <EmptyState
+                  icon={<Link2 size={36} className="text-slate-400" />}
+                  title="No links created yet"
+                  description="Start building your link list with your top social profiles, portfolio projects, stores, or videos."
+                  actionLabel="Add Your First Link"
+                  onAction={() => {
+                    setEditingLink(null);
+                    setModalOpen(true);
+                  }}
+                />
+              </div>
+            ) : filteredLinks.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-500">
+                No links matched your filter or search query.
+              </div>
+            ) : (
+              filteredLinks.map((link) => (
+                <LinkCard
+                  key={link.id}
+                  link={link}
+                  onEdit={(item) => {
+                    setEditingLink(item);
+                    setModalOpen(true);
+                  }}
+                  onDelete={handleDelete}
+                  onToggleVisibility={handleToggleVisibility}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Desktop Sticky Phone Preview (w-[320px] on lg, w-[340px] on xl) */}
+        <div className="hidden lg:block w-[320px] xl:w-[340px] shrink-0 sticky top-24">
+          <ProfilePreview user={user} links={links} theme={theme} />
+        </div>
+      </div>
+
+      {/* Floating Mobile Preview Toggle (< lg) */}
+      <MobilePreviewToggle user={user} links={links} theme={theme} />
+
+      {/* Modal Form */}
       <LinkFormModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingLink(null);
+        }}
         onSave={handleCreateOrUpdate}
         initialData={editingLink}
       />

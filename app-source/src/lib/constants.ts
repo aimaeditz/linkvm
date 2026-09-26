@@ -1,11 +1,11 @@
-import { getSiteUrl, getSiteDomain } from './site';
+import { getSiteUrl } from './site';
 
 export const BRAND = {
   name: 'LinkVM',
   tagline: 'All your links. One unified page.',
   mission: 'Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page. Every feature unlocked. 100% Free Forever.',
   get domain() {
-    return getSiteDomain();
+    return getSiteUrl().replace(/^https?:\/\//, '');
   },
   get appUrl() {
     return getSiteUrl();
@@ -102,9 +102,7 @@ export const FAQ_ITEMS = [
   },
   {
     question: 'How do I claim my unique LinkVM handle?',
-    get answer() {
-      return `Simply sign up or visit your Settings to claim your personal username. Your page will be instantly live at ${getSiteDomain()}/{username}.`;
-    },
+    answer: 'Simply sign up or visit your Settings to claim your personal username. Your page will be instantly live at linkvm.online/{username}.',
   },
   {
     question: 'How does the auto-save functionality work?',

@@ -1,10 +1,6 @@
 import React from 'react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: (string | undefined | null | false)[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
 
 export interface EmptyStateProps {
   title: string;
@@ -45,12 +41,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       </p>
 
       {actionLabel && onAction && (
-        <button
-          onClick={onAction}
-          className="px-5 py-2.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium shadow-medium transition-all cursor-pointer"
-        >
+        <Button onClick={onAction} size="md" variant="primary">
           {actionLabel}
-        </button>
+        </Button>
       )}
     </div>
   );

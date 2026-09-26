@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Menu,
-  ExternalLink,
   Search,
-  CheckCircle2,
-  RefreshCw,
-  AlertCircle,
-  Copy,
-  Check,
-  Sparkles,
+  ExternalLink,
+  ChevronDown,
+  Settings,
+  LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import { User } from '../../types';
-import { getSiteUrl, getSiteDomain } from '../../lib/site';
-import { copyToClipboard } from '../../lib/utils';
+import { AutoSaveIndicator } from './AutoSaveIndicator';
 import { CommandPalette } from './CommandPalette';
+import { HelpDrawer } from './HelpDrawer';
+import { NotificationsPopover } from './NotificationsPopover';
+import { getSiteUrl } from '../../lib/site';
 
 interface TopbarProps {
   title: string;
@@ -21,7 +21,7 @@ interface TopbarProps {
   onOpenMobileNav: () => void;
   onViewPublic: () => void;
   onNavigateSettings: () => void;
-  onNavigateTab: (tab: string) => void;
+  onNavigateTab?: (tab: string) => void;
   onLogout: () => void;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
   onRetrySave?: () => void;
@@ -32,116 +32,213 @@ export const Topbar: React.FC<TopbarProps> = ({
   user,
   onOpenMobileNav,
   onViewPublic,
+  onNavigateSettings,
   onNavigateTab,
+  onLogout,
   saveStatus = 'saved',
   onRetrySave,
 }) => {
-  const [copied, setCopied] = useState(false);
-  const [commandOpen, setCommandOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const siteUrl = getSiteUrl();
-  const publicPageUrl = `${siteUrl}/${user.username}`;
-  const displayDomain = `${getSiteDomain()}/${user.username}`;
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleCopyLink = async () => {
-    const ok = await copyToClipboard(publicPageUrl);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const handleTabNavigation = (tab: string) => {
+    if (onNavigateTab) {
+      onNavigateTab(tab);
+    } else if (tab === 'settings') {
+      onNavigateSettings();
     }
   };
 
+  const handlePreviewPage = () => {
+    if (!user.username) return;
+    const url = `${getSiteUrl()}/${user.username}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Determine if auto-save indicator should be visible for the current page
+  const cleanTitle = title.trim().toLowerCase();
+  const isEditablePage = ['overview', 'links', 'appearance', 'settings'].includes(cleanTitle);
+
   return (
     <>
-      <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 md:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0 font-sans">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 z-20">
+        {/* Left: Mobile hamburger & Section breadcrumb */}
+        <div className="flex items-center gap-3">
           <button
-            type="button"
             onClick={onOpenMobileNav}
-            className="p-2 -ml-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl lg:hidden cursor-pointer"
+            className="md:hidden p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
+            title="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <h1 className="text-base font-extrabold text-slate-900 capitalize truncate">
-            {title}
-          </h1>
-
-          {/* Auto-save status indicator */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-[11px] font-bold text-slate-600">
-            {saveStatus === 'saving' && (
-              <>
-                <RefreshCw className="w-3 h-3 text-indigo-600 animate-spin" />
-                <span>Saving...</span>
-              </>
-            )}
-            {saveStatus === 'saved' && (
-              <>
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                <span>Saved</span>
-              </>
-            )}
-            {saveStatus === 'error' && (
-              <button
-                onClick={onRetrySave}
-                className="flex items-center gap-1 text-rose-600 hover:underline cursor-pointer"
-              >
-                <AlertCircle className="w-3 h-3" />
-                <span>Save failed - Retry</span>
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 hidden sm:inline">Dashboard</span>
+            <span className="text-xs font-semibold text-slate-300 hidden sm:inline">/</span>
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 capitalize">
+              {title}
+            </h1>
           </div>
         </div>
 
-        {/* Right tools */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Command Palette Trigger */}
+        {/* Center: Command Palette Search Trigger Button */}
+        <div className="hidden lg:flex items-center">
           <button
-            type="button"
-            onClick={() => setCommandOpen(true)}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-600 text-xs font-semibold rounded-xl transition-all cursor-pointer border border-slate-200/60"
+            onClick={() => setPaletteOpen(true)}
+            className="rounded-full bg-slate-50 border border-slate-200 px-4 py-2 flex items-center gap-2 text-sm text-slate-500 hover:bg-slate-100 hover:border-slate-300 transition min-w-[240px] max-w-[360px] cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span>Search...</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] bg-white rounded border border-slate-200 font-mono text-slate-400">
-              ⌘K
-            </kbd>
+            <Search size={16} className="text-slate-400 shrink-0" />
+            <span className="truncate">Quick search actions...</span>
+          </button>
+        </div>
+
+        {/* Right Actions: AutoSave, Help, Notifications, Public View, User Profile Menu */}
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* AutoSave Live Indicator */}
+          {isEditablePage && (
+            <div className="hidden sm:block">
+              <AutoSaveIndicator status={saveStatus} onRetry={onRetrySave} />
+            </div>
+          )}
+
+          {/* Search Trigger for Mobile/Tablet */}
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="lg:hidden p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Search"
+          >
+            <Search className="w-4 h-4" />
           </button>
 
-          {/* Page Link Display / Copy */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl">
-            <span className="text-xs font-mono font-semibold text-slate-600 truncate max-w-[160px]">
-              {displayDomain}
-            </span>
+          {/* Help "?" Button */}
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="p-2 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Help & Knowledge Base"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+
+          {/* Notifications Popover */}
+          <NotificationsPopover />
+
+          {/* Public Page View Button */}
+          <div className="relative group">
             <button
-              onClick={handleCopyLink}
-              title="Copy link"
-              className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors cursor-pointer"
+              onClick={handlePreviewPage}
+              disabled={!user.username}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border cursor-pointer ${
+                user.username
+                  ? 'bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200'
+                  : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
+              }`}
+              title={!user.username ? "Set a username first." : undefined}
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Preview Page</span>
             </button>
+            {!user.username && (
+              <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 scale-0 group-hover:scale-100 transition-transform bg-slate-900 text-white text-[10px] py-1 px-2.5 rounded-lg whitespace-nowrap z-50">
+                Set a username first.
+              </span>
+            )}
           </div>
 
-          {/* View Live Page */}
-          <button
-            type="button"
-            onClick={onViewPublic}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">View Live Page</span>
-            <span className="sm:hidden">Live</span>
-          </button>
+          {/* User Profile Dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-4 py-2.5 border-b border-slate-100">
+                  <p className="text-xs font-bold text-slate-900 truncate">{user.name || user.username}</p>
+                  <p className="text-[11px] text-slate-500 truncate">@{user.username}</p>
+                </div>
+
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onViewPublic();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    <span>View Public Page</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      handleTabNavigation('settings');
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Account Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setHelpOpen(true);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Help &amp; FAQs</span>
+                  </button>
+                </div>
+
+                <div className="border-t border-slate-100 pt-1">
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Command Palette Modal */}
+      {/* Global Command Palette Modal */}
       <CommandPalette
-        isOpen={commandOpen}
-        onClose={() => setCommandOpen(false)}
-        onNavigateTab={onNavigateTab}
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigateTab={handleTabNavigation}
+        onOpenHelp={() => setHelpOpen(true)}
         user={user}
       />
+
+      {/* Global Help Drawer */}
+      <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
 };

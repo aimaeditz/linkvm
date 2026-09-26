@@ -41,28 +41,6 @@ import { WhyFreePage } from './components/info/WhyFreePage';
 import { ScrollProgress } from './components/shared/ScrollProgress';
 import { BackToTop } from './components/shared/BackToTop';
 
-const BASE = import.meta.env.BASE_URL || '/';
-
-function getNormalizedPath(): string {
-  let path = window.location.pathname;
-  const baseWithoutTrailing = BASE !== '/' && BASE.endsWith('/') ? BASE.slice(0, -1) : BASE;
-  if (BASE !== '/' && path.startsWith(BASE)) {
-    path = path.slice(BASE.length);
-  } else if (BASE !== '/' && (path === baseWithoutTrailing || path.startsWith(baseWithoutTrailing + '/'))) {
-    path = path.slice(baseWithoutTrailing.length);
-  }
-  // Ensure leading slash
-  if (!path.startsWith('/')) path = '/' + path;
-  // Remove trailing slash except for root
-  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
-  return path;
-}
-
-function getAppUrl(to: string): string {
-  const cleanTo = to.startsWith('/') ? to : '/' + to;
-  return BASE === '/' ? cleanTo : BASE.replace(/\/$/, '') + cleanTo;
-}
-
 export default function App() {
   const [route, setRoute] = useState<string>('landing');
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
@@ -102,23 +80,63 @@ export default function App() {
     return cleaned.trim();
   };
 
-  const navigate = (to: string) => {
-    const url = getAppUrl(to);
-    window.history.pushState(null, '', url);
-    resolveRouteAndLoad();
+  const getAppPath = (path: string): string => {
+    const base = ((import.meta as any)?.env?.BASE_URL || '/').replace(/\/$/, '');
+    const clean = path.startsWith('/') ? path : `/${path}`;
+    return base ? `${base}${clean}` : clean;
   };
 
-  const resolveRouteAndLoad = () => {
-    const path = getNormalizedPath();
+  const getCleanRoutePath = (pathname = window.location.pathname): string => {
+    const base = ((import.meta as any)?.env?.BASE_URL || '/');
+    let path = pathname;
+    if (base !== '/' && path.startsWith(base)) {
+      path = path.slice(base.length);
+    } else if (path.startsWith('/linkvm/')) {
+      path = path.slice('/linkvm/'.length);
+    } else if (path === '/linkvm') {
+      path = '';
+    }
+    return path.replace(/^\//, '').trim();
+  };
 
-    // 1. Root ALWAYS renders Landing, no exceptions.
-    if (path === '/' || path === '') {
-      setRoute('landing');
+  const resolveRouteAndLoad = (pathname = window.location.pathname) => {
+    const cleanPath = getCleanRoutePath(pathname);
+
+    // Check subdomain user first
+    const hostname = window.location.hostname;
+    const hostParts = hostname.split('.');
+    let targetUsername = '';
+
+    const isDevOrStandard = 
+      hostname.includes('run.app') || 
+      hostname.includes('localhost') || 
+      hostname.includes('127.0.0.1') || 
+      hostname.includes('web.app') || 
+      hostname.includes('github.dev') ||
+      hostname.includes('vercel.app') ||
+      hostname.includes('gitpod.io');
+
+    if (!isDevOrStandard && hostParts.length > 2 && hostParts[0] !== 'www' && hostParts[0] !== 'linkvm') {
+      targetUsername = hostParts[0];
+    }
+
+    if (targetUsername) {
+      const normalizedSubdomain = normalizeUsername(targetUsername);
+      const found = StorageService.findUserByUsername(normalizedSubdomain);
+      if (found) {
+        setProfileUser(found);
+        setProfileLinks(StorageService.getLinksForUser(found.id));
+        setProfileTheme(StorageService.getThemeForUser(found.id));
+        setProfileSocials(StorageService.getSocialsForUser(found.id));
+        setRoute('public_profile');
+      } else {
+        setRoute('404');
+      }
       return;
     }
 
-    // 2. Reserved routes — never treated as usernames.
-    const RESERVED = new Set([
+    // Static pages and reserved paths
+    const RESERVED_PATHS = new Set([
       'login',
       'signup',
       'forgot-password',
@@ -129,130 +147,140 @@ export default function App() {
       'privacy',
       'terms',
       'invite',
-      'r',
       '404',
-      'assets',
-      'favicon.ico',
-      'manifest.json',
-      'index.html',
+      'index.html'
     ]);
 
-    const segments = path.split('/').filter(Boolean);
-    const firstSegment = (segments[0] || '').toLowerCase();
+    const segments = cleanPath.split('/').filter(Boolean);
 
-    // 3. /dashboard/* handling
-    if (path.startsWith('/dashboard') || firstSegment === 'dashboard') {
+    // If path is empty (root route)
+    if (segments.length === 0) {
+      setRoute('landing');
+      return;
+    }
+
+    const firstSegment = segments[0];
+
+    // Check if the path starts with /r/{code} (short referral URL)
+    if (firstSegment === 'r' && segments.length >= 2) {
+      const code = segments[1];
+      if (code) {
+        localStorage.setItem('linkvm_ref_code', code);
+        document.cookie = `linkvm_ref_code=${code}; path=/; max-age=86400`;
+        window.history.replaceState(null, '', getAppPath(`/signup?ref=${code}`));
+        setRoute('signup');
+        return;
+      }
+    }
+
+    // Check if the path is a dashboard nested path
+    if (firstSegment === 'dashboard') {
       if (!StorageService.isSessionActive()) {
-        window.history.replaceState(null, '', getAppUrl('/login'));
+        window.history.replaceState(null, '', getAppPath('/login'));
         setRoute('login');
         return;
       }
-
-      if (segments.length <= 1) {
+      
+      if (segments.length === 1) {
         setRoute('dashboard');
         setDashboardTab('overview');
         return;
       }
-
+      
+      // It's a dashboard nested tab, like dashboard/links
       const tab = segments.slice(1).join('/');
       setRoute('dashboard');
       setDashboardTab(tab || 'overview');
       return;
     }
 
-    // 4. /r/{code} referral handling
-    if (path.startsWith('/r/') || (firstSegment === 'r' && segments.length >= 2)) {
-      const code = segments[1];
-      if (code) {
-        localStorage.setItem('linkvm_ref_code', code);
-        document.cookie = `linkvm_ref_code=${code}; path=/; max-age=86400`;
-        window.history.replaceState(null, '', getAppUrl(`/signup?ref=${code}`));
-        setRoute('signup');
-        return;
+    // Check other static routes
+    if (firstSegment === 'login') {
+      if (StorageService.isSessionActive()) {
+        window.history.replaceState(null, '', getAppPath('/dashboard'));
+        setRoute('dashboard');
+        setDashboardTab('overview');
+      } else {
+        setRoute('login');
       }
-    }
-
-    // Reserved routes matching
-    if (RESERVED.has(firstSegment)) {
-      if (firstSegment === 'login') {
-        if (StorageService.isSessionActive()) {
-          window.history.replaceState(null, '', getAppUrl('/dashboard'));
-          setRoute('dashboard');
-          setDashboardTab('overview');
-        } else {
-          setRoute('login');
-        }
-        return;
-      }
-      if (firstSegment === 'signup') {
-        if (StorageService.isSessionActive()) {
-          window.history.replaceState(null, '', getAppUrl('/dashboard'));
-          setRoute('dashboard');
-          setDashboardTab('overview');
-        } else {
-          setRoute('signup');
-        }
-        return;
-      }
-      if (firstSegment === 'forgot-password') {
-        setRoute('forgot-password');
-        return;
-      }
-      if (firstSegment === 'about') {
-        setRoute('about');
-        return;
-      }
-      if (firstSegment === 'privacy') {
-        setRoute('privacy');
-        return;
-      }
-      if (firstSegment === 'terms') {
-        setRoute('terms');
-        return;
-      }
-      if (firstSegment === 'contact') {
-        setRoute('contact');
-        return;
-      }
-      if (firstSegment === 'why-free') {
-        setRoute('why-free');
-        return;
-      }
-      if (firstSegment === '404') {
-        setRoute('404');
-        return;
-      }
-      setRoute('landing');
       return;
     }
 
-    // 5. Public profile /{username} — only if NOT reserved and looks like a username
-    const username = normalizeUsername(firstSegment);
-    if (username && /^[a-z0-9_-]{3,30}$/.test(username)) {
-      const user = StorageService.findUserByUsername(username);
-      if (user) {
-        setProfileUser(user);
-        setProfileLinks(StorageService.getLinksForUser(user.id));
-        setProfileTheme(StorageService.getThemeForUser(user.id));
-        setProfileSocials(StorageService.getSocialsForUser(user.id));
-        setRoute('public_profile');
-        return;
+    if (firstSegment === 'signup') {
+      if (StorageService.isSessionActive()) {
+        window.history.replaceState(null, '', getAppPath('/dashboard'));
+        setRoute('dashboard');
+        setDashboardTab('overview');
+      } else {
+        setRoute('signup');
+      }
+      return;
+    }
+
+    if (firstSegment === 'forgot-password') {
+      setRoute('forgot-password');
+      return;
+    }
+
+    if (firstSegment === 'about') {
+      setRoute('about');
+      return;
+    }
+
+    if (firstSegment === 'privacy') {
+      setRoute('privacy');
+      return;
+    }
+
+    if (firstSegment === 'terms') {
+      setRoute('terms');
+      return;
+    }
+
+    if (firstSegment === 'contact') {
+      setRoute('contact');
+      return;
+    }
+
+    if (firstSegment === 'why-free') {
+      setRoute('why-free');
+      return;
+    }
+
+    if (firstSegment === '404') {
+      setRoute('404');
+      return;
+    }
+
+    // Public profile route (/{username}):
+    // - Match only when the first segment is NOT in the reserved list above.
+    // - Normalize the segment by stripping leading @, $, -, +, !, ~ characters, lowercasing, and trimming.
+    // - If the normalized username exists in the local user store -> render the public profile.
+    // - If it does not exist -> render the 404 "Profile Not Found" page (only if segments.length === 1, indicating username lookup)
+    if (!RESERVED_PATHS.has(firstSegment.toLowerCase())) {
+      if (segments.length === 1) {
+        const normalized = normalizeUsername(firstSegment);
+        const userFound = StorageService.findUserByUsername(normalized);
+        if (userFound) {
+          setProfileUser(userFound);
+          setProfileLinks(StorageService.getLinksForUser(userFound.id));
+          setProfileTheme(StorageService.getThemeForUser(userFound.id));
+          setProfileSocials(StorageService.getSocialsForUser(userFound.id));
+          setRoute('public_profile');
+          return;
+        } else {
+          setRoute('404');
+          return;
+        }
       }
     }
 
-    // 6. Otherwise → 404 profile not found
-    setRoute('404');
+    // Default fallback:
+    // - If the path cannot be matched to any known route -> render the Landing page (NOT the 404 page).
+    setRoute('landing');
   };
 
   useEffect(() => {
-    // Sanity check: guaranteed root render on first paint
-    const initialPath = getNormalizedPath();
-    if (initialPath === '' || initialPath === '/') {
-      if (BASE !== '/' && window.location.pathname !== BASE) {
-        window.history.replaceState(null, '', BASE);
-      }
-    }
-
     refreshAllState();
     
     // Capture referral code if present in the URL
@@ -277,12 +305,14 @@ export default function App() {
   const handleLogout = () => {
     StorageService.logout();
     refreshAllState();
-    navigate('/');
+    window.history.pushState(null, '', getAppPath('/'));
+    resolveRouteAndLoad('/');
   };
 
   const handleLoginSuccess = () => {
     refreshAllState();
-    navigate('/dashboard');
+    window.history.pushState(null, '', getAppPath('/dashboard'));
+    resolveRouteAndLoad('/dashboard');
   };
 
   // Quick navigation handler
@@ -303,9 +333,10 @@ export default function App() {
       newPath = `/dashboard/${tab}`;
     } else if (targetRoute.startsWith('#')) {
       // It's a hash anchor
-      const normalized = getNormalizedPath();
-      if (normalized !== '/') {
-        navigate('/' + targetRoute);
+      const cleanCurrent = getCleanRoutePath(window.location.pathname);
+      if (cleanCurrent !== '') {
+        window.history.pushState(null, '', getAppPath(`/${targetRoute}`));
+        resolveRouteAndLoad('/');
         setTimeout(() => {
           const el = document.querySelector(targetRoute);
           if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -318,10 +349,12 @@ export default function App() {
     } else if (targetRoute === 'pricing') {
       newPath = '/why-free';
     } else {
-      newPath = targetRoute.startsWith('/') ? targetRoute : `/${targetRoute}`;
+      newPath = `/${targetRoute}`;
     }
 
-    navigate(newPath);
+    const appPath = getAppPath(newPath);
+    window.history.pushState(null, '', appPath);
+    resolveRouteAndLoad(appPath);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -382,10 +415,12 @@ export default function App() {
         theme={profileTheme || theme}
         socials={profileSocials || socials}
         onBackToDashboard={currentUser && currentUser.id === profileUser.id ? () => {
-          navigate('/dashboard');
+          window.history.pushState(null, '', getAppPath('/dashboard'));
+          resolveRouteAndLoad('/dashboard');
         } : undefined}
         onNavigateHome={() => {
-          navigate('/');
+          window.history.pushState(null, '', getAppPath('/'));
+          resolveRouteAndLoad('/');
         }}
       />
     );
@@ -409,7 +444,8 @@ export default function App() {
           <div className="w-full grid grid-cols-2 gap-3 mt-6">
             <button
               onClick={() => {
-                navigate('/');
+                window.history.pushState(null, '', getAppPath('/'));
+                resolveRouteAndLoad('/');
               }}
               className="w-full px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer"
             >
@@ -417,7 +453,8 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                navigate('/signup');
+                window.history.pushState(null, '', getAppPath('/signup'));
+                resolveRouteAndLoad('/signup');
               }}
               className="w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
             >

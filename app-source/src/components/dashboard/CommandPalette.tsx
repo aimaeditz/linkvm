@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { User } from '../../types';
 import { buildPublicUrl } from '../../lib/utils';
-import { getSiteDomain } from '../../lib/site';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -66,7 +65,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     },
     {
       id: 'view-public',
-      title: `View Public Profile (${getSiteDomain()})`,
+      title: 'View Public Profile (linkvm.online)',
       category: 'Actions',
       icon: ExternalLink,
       action: () => {

@@ -4,7 +4,6 @@ import { LinkItem, ThemeConfig } from '../../types';
 import { linkSchema } from '../../lib/validators';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { StorageService } from '../../lib/storage';
-import { getSiteUrl } from '../../lib/site';
 
 interface LinkFormModalProps {
   isOpen: boolean;
@@ -321,7 +320,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
               </div>
 
               <div className="text-[11px] text-slate-400 font-mono text-center">
-                Destination: {url || getSiteUrl()}
+                Destination: {url || 'https://linkvm.online'}
               </div>
             </div>
           )}
