@@ -118,7 +118,6 @@ export default function App() {
     let targetUsername = '';
 
     const isDevOrStandard =
-      hostname.includes('run.app') ||
       hostname.includes('localhost') ||
       hostname.includes('127.0.0.1') ||
       hostname.includes('web.app') ||
