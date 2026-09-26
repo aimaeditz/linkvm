@@ -119,8 +119,17 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                    {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name || user.username}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span>{user.name ? user.name.charAt(0).toUpperCase() : (user.username || 'C').charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">

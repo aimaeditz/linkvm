@@ -163,8 +163,17 @@ export const Topbar: React.FC<TopbarProps> = ({
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs relative">
-                {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name || user.username}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span>{user.name ? user.name.charAt(0).toUpperCase() : (user.username || 'C').charAt(0).toUpperCase()}</span>
+                )}
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>

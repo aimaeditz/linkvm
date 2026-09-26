@@ -632,6 +632,17 @@ export class StorageService {
     return res.user || null;
   }
 
+  static setUser(user: User): User | null {
+    if (cachedCurrentUser) {
+      cachedCurrentUser = { ...cachedCurrentUser, ...user, updatedAt: new Date().toISOString() };
+    } else {
+      cachedCurrentUser = { ...user, updatedAt: new Date().toISOString() };
+    }
+    AuthService.updateProfile(user);
+    notifyListeners();
+    return cachedCurrentUser;
+  }
+
   static updateUser(partial: Partial<User>): User | null {
     AuthService.updateProfile(partial);
     if (cachedCurrentUser) {
