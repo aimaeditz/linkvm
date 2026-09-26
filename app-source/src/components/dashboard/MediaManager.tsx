@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Trash2, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, Image as ImageIcon, AlertCircle, Loader2, Check } from 'lucide-react';
 import { User } from '../../types';
+import { storage, isFirebaseConfigured } from '../../lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface MediaManagerProps {
   avatarUrl: string;
@@ -10,6 +12,8 @@ interface MediaManagerProps {
 
 export const MediaManager: React.FC<MediaManagerProps> = ({ avatarUrl, onAvatarChange, user }) => {
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -26,6 +30,7 @@ export const MediaManager: React.FC<MediaManagerProps> = ({ avatarUrl, onAvatarC
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
+    setUploadSuccess(false);
 
     if (!file.type.startsWith('image/')) {
       setError('Avatar must be an image file (JPG, PNG, or WEBP).');
@@ -36,16 +41,44 @@ export const MediaManager: React.FC<MediaManagerProps> = ({ avatarUrl, onAvatarC
       return;
     }
 
+    setIsUploading(true);
+
     try {
-      const dataUrl = await fileToDataUrl(file);
-      onAvatarChange(dataUrl);
-    } catch {
-      setError('Failed to process image file.');
+      let finalUrl = '';
+      if (isFirebaseConfigured && user.id) {
+        const fileExt = file.name.split('.').pop() || 'png';
+        const storagePath = `users/${user.id}/avatars/avatar_${Date.now()}.${fileExt}`;
+        const fileRef = storageRef(storage, storagePath);
+        
+        try {
+          const snapshot = await uploadBytes(fileRef, file);
+          finalUrl = await getDownloadURL(snapshot.ref);
+        } catch (storageErr) {
+          console.warn('Firebase storage upload fallback to optimized data url:', storageErr);
+          finalUrl = await fileToDataUrl(file);
+        }
+      } else {
+        finalUrl = await fileToDataUrl(file);
+      }
+
+      onAvatarChange(finalUrl);
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to process and upload avatar image.';
+      setError(message);
+    } finally {
+      setIsUploading(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
     }
   };
 
   const handleRemoveAvatar = () => {
     onAvatarChange('');
+    setError(null);
+    setUploadSuccess(false);
   };
 
   return (
@@ -57,22 +90,31 @@ export const MediaManager: React.FC<MediaManagerProps> = ({ avatarUrl, onAvatarC
         </div>
       )}
 
+      {uploadSuccess && (
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-2">
+          <Check size={16} className="shrink-0 text-emerald-600" />
+          <span>Profile photo uploaded and updated!</span>
+        </div>
+      )}
+
       <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs">
         <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
           <ImageIcon size={16} className="text-indigo-600" />
           <span>Profile Picture</span>
         </h3>
         <p className="text-xs text-slate-500 mb-4">
-          JPG, PNG, or WEBP. Max 5 MB. Appears as your main profile avatar.
+          JPG, PNG, or WEBP. Max 5 MB. Stored securely and linked to your profile.
         </p>
 
         <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-xs relative">
+            {isUploading ? (
+              <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+            ) : avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <span className="font-bold text-lg text-slate-600">
-                {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
+                {user.name ? user.name.charAt(0).toUpperCase() : (user.username || 'C').charAt(0).toUpperCase()}
               </span>
             )}
           </div>
@@ -81,20 +123,21 @@ export const MediaManager: React.FC<MediaManagerProps> = ({ avatarUrl, onAvatarC
             <input
               type="file"
               ref={avatarInputRef}
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={handleAvatarChange}
             />
             <button
               type="button"
+              disabled={isUploading}
               onClick={() => avatarInputRef.current?.click()}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
             >
-              <Upload size={14} />
-              <span>Upload photo</span>
+              {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              <span>{isUploading ? 'Uploading to storage…' : 'Upload photo'}</span>
             </button>
 
-            {avatarUrl && (
+            {avatarUrl && !isUploading && (
               <button
                 type="button"
                 onClick={handleRemoveAvatar}

@@ -93,7 +93,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               size="md"
               className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5 cursor-pointer"
             >
-              <span>View Page</span>
+              <span>Preview Page</span>
               <ExternalLink size={14} />
             </Button>
             <Button

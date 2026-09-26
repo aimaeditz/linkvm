@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, ExternalLink, Globe, Plus, Check, Eye } from 'lucide-react';
 import { LinkItem, ThemeConfig } from '../../types';
 import { linkSchema } from '../../lib/validators';
-import { IconPicker, getIconComponent } from './IconPicker';
+import { IconPicker, getIconComponent, detectPlatformFromUrl } from './IconPicker';
 import { StorageService } from '../../lib/storage';
-import { detectPlatformIcon } from '../../lib/icons';
 
 interface LinkFormModalProps {
   isOpen: boolean;
@@ -35,6 +34,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
   const [openInNew, setOpenInNew] = useState(true);
   const [highlighted, setHighlighted] = useState(false);
   const [animation, setAnimation] = useState<'none' | 'pulse' | 'bounce' | 'glow'>('none');
+  const [userCustomizedIcon, setUserCustomizedIcon] = useState(false);
 
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +52,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
       setOpenInNew(initialData.openInNew);
       setHighlighted(initialData.highlighted || false);
       setAnimation(initialData.animation || 'none');
+      setUserCustomizedIcon(true);
     } else {
       setTitle('');
       setUrl('');
@@ -60,6 +61,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
       setOpenInNew(true);
       setHighlighted(false);
       setAnimation('none');
+      setUserCustomizedIcon(false);
     }
     setError(null);
     setShowIconPicker(false);
@@ -67,6 +69,27 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleUrlChange = (newUrl: string) => {
+    setUrl(newUrl);
+
+    // Auto-detect platform icon if not explicitly manually chosen or if new link
+    const detected = detectPlatformFromUrl(newUrl);
+    if (detected) {
+      if (!userCustomizedIcon || icon === 'Globe' || icon === 'Link') {
+        setIcon(detected.icon);
+      }
+      if (!title || title === 'My Portfolio' || title === 'Latest Video' || title === 'Newsletter') {
+        setTitle(detected.platformName);
+      }
+    }
+  };
+
+  const handleManualIconSelect = (selected: string) => {
+    setIcon(selected);
+    setUserCustomizedIcon(true);
+    setShowIconPicker(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,17 +100,10 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
       processedUrl = `https://${processedUrl}`;
     }
 
-    // Auto-detect platform icon if icon is default/generic or matching
-    let finalIcon = icon;
-    const detected = detectPlatformIcon(processedUrl);
-    if (detected && (!finalIcon || finalIcon.toLowerCase() === 'globe' || finalIcon.toLowerCase() === 'link')) {
-      finalIcon = detected;
-    }
-
     const result = linkSchema.safeParse({
       title,
       url: processedUrl,
-      icon: finalIcon,
+      icon,
       visible,
       openInNew,
       highlighted,
@@ -212,10 +228,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
                   <div className="pt-2">
                     <IconPicker
                       selectedIcon={icon}
-                      onSelectIcon={(selected) => {
-                        setIcon(selected);
-                        setShowIconPicker(false);
-                      }}
+                      onSelectIcon={handleManualIconSelect}
                       onClose={() => setShowIconPicker(false)}
                     />
                   </div>
@@ -224,19 +237,19 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
 
               {/* Destination URL */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Destination URL</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Destination URL</label>
+                  {detectPlatformFromUrl(url) && (
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                      Detected: {detectPlatformFromUrl(url)?.platformName}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  placeholder="https://example.com/your-content (e.g. tiktok.com/@username, youtube.com/@channel)"
+                  placeholder="https://tiktok.com/@yourname or https://youtube.com/..."
                   value={url}
-                  onChange={(e) => {
-                    const newUrl = e.target.value;
-                    setUrl(newUrl);
-                    const detected = detectPlatformIcon(newUrl);
-                    if (detected) {
-                      setIcon(detected);
-                    }
-                  }}
+                  onChange={(e) => handleUrlChange(e.target.value)}
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:border-indigo-500 bg-white font-mono text-xs"
                 />

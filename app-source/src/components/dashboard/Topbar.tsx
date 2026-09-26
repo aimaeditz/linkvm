@@ -138,14 +138,14 @@ export const Topbar: React.FC<TopbarProps> = ({
           {/* Public Page View Button */}
           <div className="relative group">
             <button
-              onClick={handlePreviewPage}
+              onClick={onViewPublic}
               disabled={!user.username}
               className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border cursor-pointer ${
                 user.username
                   ? 'bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200'
                   : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
               }`}
-              title={!user.username ? "Set a username first." : undefined}
+              title={!user.username ? "Set a username first." : `Preview ${user.username}'s public profile`}
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Preview Page</span>
