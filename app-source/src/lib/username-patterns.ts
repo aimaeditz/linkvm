@@ -71,11 +71,112 @@ export const PATTERNS: PatternItem[] = [
 export function normalizeUsername(raw: string): string {
   if (!raw) return '';
   let cleaned = raw.trim();
-  // Strip leading prefixes if present
-  if (/^[@$\-+!~]/.test(cleaned)) {
-    cleaned = cleaned.substring(1);
+  try {
+    cleaned = decodeURIComponent(cleaned);
+  } catch {
+    // ignore
   }
-  return cleaned.toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+  cleaned = cleaned.trim().toLowerCase();
+
+  // Strip leading prefix markers (@, $, -, +, !, ~, #) and any encoded variants repeatedly
+  while (cleaned.length > 0) {
+    if (['@', '$', '-', '+', '!', '~', '#'].includes(cleaned[0])) {
+      cleaned = cleaned.substring(1).trim();
+    } else if (cleaned.startsWith('%40')) {
+      cleaned = cleaned.substring(3).trim();
+    } else if (cleaned.startsWith('%24')) {
+      cleaned = cleaned.substring(3).trim();
+    } else if (cleaned.startsWith('%2b') || cleaned.startsWith('%2b') || cleaned.startsWith('%2B')) {
+      cleaned = cleaned.substring(3).trim();
+    } else if (cleaned.startsWith('%21')) {
+      cleaned = cleaned.substring(3).trim();
+    } else if (cleaned.startsWith('%7e') || cleaned.startsWith('%7E')) {
+      cleaned = cleaned.substring(3).trim();
+    } else {
+      break;
+    }
+  }
+
+  // Preserve alphanumeric characters, hyphens, and underscores
+  return cleaned.replace(/[^a-z0-9_-]/g, '').trim();
+}
+
+export function extractUsernameFromUrl(
+  pathname: string = typeof window !== 'undefined' ? window.location.pathname : '/',
+  hostname: string = typeof window !== 'undefined' ? window.location.hostname : '',
+  baseUrl?: string
+): { isSubdomain: boolean; username: string } | null {
+  // 1. Check Subdomain first
+  const hostParts = hostname.toLowerCase().split(':');
+  const hostNoPort = hostParts[0];
+  const parts = hostNoPort.split('.');
+
+  const isLinkvmSubdomain =
+    (hostNoPort.endsWith('.linkvm.online') && parts.length >= 3 && !['www', 'linkvm', 'app', 'api', 'admin', 'auth'].includes(parts[0])) ||
+    (hostNoPort.endsWith('.localhost') && parts.length >= 2 && !['www', 'app', 'api'].includes(parts[0]));
+
+  if (isLinkvmSubdomain && parts[0]) {
+    const cleanSubdomain = normalizeUsername(parts[0]);
+    if (cleanSubdomain) {
+      return { isSubdomain: true, username: cleanSubdomain };
+    }
+  }
+
+  // 2. Check Pathname
+  let path = pathname;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // ignore
+  }
+
+  const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+  const base = (baseUrl || envMap?.BASE_URL || '/').replace(/\/$/, '');
+  if (base && base !== '/' && path.startsWith(base)) {
+    path = path.slice(base.length);
+  }
+  if (path.startsWith('/linkvm/')) {
+    path = path.slice('/linkvm/'.length);
+  } else if (path === '/linkvm') {
+    path = '';
+  }
+
+  const segments = path.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  const first = segments[0].trim();
+  const RESERVED_PATHS = new Set([
+    'login',
+    'signup',
+    'forgot-password',
+    'dashboard',
+    'why-free',
+    'about',
+    'contact',
+    'privacy',
+    'terms',
+    'invite',
+    '404',
+    'index.html',
+    'r',
+    'assets',
+    'api',
+    'favicon.ico',
+    'robots.txt',
+    'sitemap.xml',
+    'manifest.json',
+  ]);
+
+  if (RESERVED_PATHS.has(first.toLowerCase())) {
+    return null;
+  }
+
+  const clean = normalizeUsername(first);
+  if (!clean) return null;
+
+  return { isSubdomain: false, username: clean };
 }
 
 export function buildPatternUrl(pattern: string | undefined, username: string, baseUrl?: string): string {
@@ -103,3 +204,4 @@ export function buildPatternDisplayUrl(pattern: string | undefined, username: st
   const full = buildPatternUrl(pattern, username, baseUrl);
   return full.replace(/^https?:\/\//, '');
 }
+

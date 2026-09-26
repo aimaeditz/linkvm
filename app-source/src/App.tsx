@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, LinkItem, ThemeConfig, SocialLinks, AnalyticsEvent } from './types';
 import { StorageService, subscribeToStore } from './lib/storage';
 import { isFirebaseConfigured, firebaseMissingError } from './lib/firebase';
+import { extractUsernameFromUrl, normalizeUsername } from './lib/username-patterns';
 import { AlertTriangle } from 'lucide-react';
 import { Spinner } from './components/shared/Loader';
 
@@ -44,9 +45,65 @@ import { ScrollProgress } from './components/shared/ScrollProgress';
 import { BackToTop } from './components/shared/BackToTop';
 import { useSeoHead } from './hooks/useSeoHead';
 
+function getInitialRouteState(): { route: string; dashboardTab: string } {
+  if (typeof window === 'undefined') {
+    return { route: 'landing', dashboardTab: 'overview' };
+  }
+
+  const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+  const baseUrl = envMap?.BASE_URL || '/';
+  const pathname = window.location.pathname;
+  const hostname = window.location.hostname;
+
+  const profileMatch = extractUsernameFromUrl(pathname, hostname, baseUrl);
+  if (profileMatch) {
+    return { route: 'resolving_profile', dashboardTab: 'overview' };
+  }
+
+  let clean = pathname;
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    // ignore
+  }
+
+  const baseClean = baseUrl.replace(/\/$/, '');
+  if (baseClean && clean.startsWith(baseClean)) {
+    clean = clean.slice(baseClean.length);
+  }
+  if (clean.startsWith('/linkvm/')) {
+    clean = clean.slice('/linkvm/'.length);
+  } else if (clean === '/linkvm') {
+    clean = '';
+  }
+
+  const segments = clean.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return { route: 'landing', dashboardTab: 'overview' };
+  }
+
+  const firstSegment = segments[0].toLowerCase();
+  if (firstSegment === 'login') return { route: 'login', dashboardTab: 'overview' };
+  if (firstSegment === 'signup') return { route: 'signup', dashboardTab: 'overview' };
+  if (firstSegment === 'forgot-password') return { route: 'forgot-password', dashboardTab: 'overview' };
+  if (firstSegment === 'about') return { route: 'about', dashboardTab: 'overview' };
+  if (firstSegment === 'privacy') return { route: 'privacy', dashboardTab: 'overview' };
+  if (firstSegment === 'terms') return { route: 'terms', dashboardTab: 'overview' };
+  if (firstSegment === 'contact') return { route: 'contact', dashboardTab: 'overview' };
+  if (firstSegment === 'why-free') return { route: 'why-free', dashboardTab: 'overview' };
+  if (firstSegment === '404') return { route: '404', dashboardTab: 'overview' };
+  if (firstSegment === 'dashboard') {
+    const tab = segments.slice(1).join('/') || 'overview';
+    return { route: 'dashboard', dashboardTab: tab };
+  }
+
+  return { route: 'resolving_profile', dashboardTab: 'overview' };
+}
+
 export default function App() {
-  const [route, setRoute] = useState<string>('landing');
-  const [dashboardTab, setDashboardTab] = useState<string>('overview');
+  const initial = getInitialRouteState();
+  const [route, setRoute] = useState<string>(initial.route);
+  const [dashboardTab, setDashboardTab] = useState<string>(initial.dashboardTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState(!StorageService.isAuthReady());
 
@@ -81,18 +138,9 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeToStore(() => {
       refreshAllState();
-      resolveRouteAndLoad();
     });
     return () => unsubscribe();
   }, []);
-
-  const normalizeUsername = (username: string): string => {
-    let cleaned = username.trim().toLowerCase();
-    while (cleaned.length > 0 && ['@', '$', '-', '+', '!', '~'].includes(cleaned[0])) {
-      cleaned = cleaned.substring(1);
-    }
-    return cleaned.trim();
-  };
 
   const getAppPath = (path: string): string => {
     const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
@@ -102,9 +150,14 @@ export default function App() {
   };
 
   const getCleanRoutePath = (pathname = window.location.pathname): string => {
+    let path = pathname;
+    try {
+      path = decodeURIComponent(path);
+    } catch {
+      // ignore
+    }
     const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
     const base = envMap?.BASE_URL || '/';
-    let path = pathname;
     if (base !== '/' && path.startsWith(base)) {
       path = path.slice(base.length);
     } else if (path.startsWith('/linkvm/')) {
@@ -112,34 +165,34 @@ export default function App() {
     } else if (path === '/linkvm') {
       path = '';
     }
-    return path.replace(/^\//, '').trim();
+    return path.replace(/^\/+|\/+$/g, '').trim();
   };
 
   const resolveRouteAndLoad = async (pathname = window.location.pathname) => {
-    const cleanPath = getCleanRoutePath(pathname);
-
+    const envMap = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env;
+    const baseUrl = envMap?.BASE_URL || '/';
     const hostname = window.location.hostname;
-    const hostParts = hostname.split('.');
-    let targetUsername = '';
 
-    const isLinkvmSubdomain =
-      hostname.endsWith('.linkvm.online') &&
-      hostParts.length >= 3 &&
-      hostParts[0] !== 'www' &&
-      hostParts[0] !== 'linkvm';
+    // 1. Check if the URL is a public profile pattern (subdomain, /@username, /$username, /-username, /+username, /!username, /~username, /username)
+    const profileMatch = extractUsernameFromUrl(pathname, hostname, baseUrl);
+    if (profileMatch && profileMatch.username) {
+      const targetUsername = profileMatch.username;
 
-    if (isLinkvmSubdomain) {
-      targetUsername = hostParts[0];
-    }
+      // Check synchronous cache first
+      const syncBundle = StorageService.findUserByUsername(targetUsername);
+      if (syncBundle && profileUser && profileUser.username.toLowerCase() === targetUsername) {
+        setRoute('public_profile');
+        return;
+      }
 
-    if (targetUsername) {
-      const normalizedSubdomain = normalizeUsername(targetUsername);
-      const found = await StorageService.findUserByUsernameAsync(normalizedSubdomain);
-      if (found) {
-        setProfileUser(found);
-        setProfileLinks(await StorageService.getLinksForUserAsync(found.id));
-        setProfileTheme(await StorageService.getThemeForUserAsync(found.id));
-        setProfileSocials(await StorageService.getSocialsForUserAsync(found.id));
+      setRoute((prev) => (prev === 'public_profile' && profileUser?.username.toLowerCase() === targetUsername ? prev : 'resolving_profile'));
+
+      const bundle = await StorageService.getFullPublicProfileAsync(targetUsername);
+      if (bundle && bundle.user) {
+        setProfileUser(bundle.user);
+        setProfileLinks(bundle.links);
+        setProfileTheme(bundle.theme);
+        setProfileSocials(bundle.socials);
         setRoute('public_profile');
       } else {
         setRoute('404');
@@ -147,21 +200,7 @@ export default function App() {
       return;
     }
 
-    const RESERVED_PATHS = new Set([
-      'login',
-      'signup',
-      'forgot-password',
-      'dashboard',
-      'why-free',
-      'about',
-      'contact',
-      'privacy',
-      'terms',
-      'invite',
-      '404',
-      'index.html',
-    ]);
-
+    const cleanPath = getCleanRoutePath(pathname);
     const segments = cleanPath.split('/').filter(Boolean);
 
     if (segments.length === 0) {
@@ -169,7 +208,7 @@ export default function App() {
       return;
     }
 
-    const firstSegment = segments[0];
+    const firstSegment = segments[0].toLowerCase();
 
     // Referral URL -> redirect to /login
     if (firstSegment === 'r' && segments.length >= 2) {
@@ -249,19 +288,17 @@ export default function App() {
       return;
     }
 
-    // Public profile route (/{username})
-    if (!RESERVED_PATHS.has(firstSegment.toLowerCase())) {
-      if (segments.length === 1) {
-        const normalized = normalizeUsername(firstSegment);
-        let userFound = StorageService.findUserByUsername(normalized);
-        if (!userFound) {
-          userFound = await StorageService.findUserByUsernameAsync(normalized);
-        }
-        if (userFound) {
-          setProfileUser(userFound);
-          setProfileLinks(await StorageService.getLinksForUserAsync(userFound.id));
-          setProfileTheme(await StorageService.getThemeForUserAsync(userFound.id));
-          setProfileSocials(await StorageService.getSocialsForUserAsync(userFound.id));
+    // Fallback: try resolving single segment as potential username
+    if (segments.length === 1) {
+      const normalized = normalizeUsername(firstSegment);
+      if (normalized) {
+        setRoute((prev) => (prev === 'public_profile' && profileUser?.username.toLowerCase() === normalized ? prev : 'resolving_profile'));
+        const bundle = await StorageService.getFullPublicProfileAsync(normalized);
+        if (bundle && bundle.user) {
+          setProfileUser(bundle.user);
+          setProfileLinks(bundle.links);
+          setProfileTheme(bundle.theme);
+          setProfileSocials(bundle.socials);
           setRoute('public_profile');
           return;
         } else {
@@ -286,7 +323,12 @@ export default function App() {
     StorageService.authReadyPromise.then(() => {
       setIsAuthInitializing(false);
       refreshAllState();
-      resolveRouteAndLoad();
+      // If currently on auth/dashboard route, recheck
+      const curPath = getCleanRoutePath(window.location.pathname);
+      const first = curPath.split('/')[0]?.toLowerCase();
+      if (first === 'dashboard' || first === 'login' || first === 'signup') {
+        resolveRouteAndLoad();
+      }
     });
 
     resolveRouteAndLoad();
@@ -353,6 +395,20 @@ export default function App() {
     resolveRouteAndLoad(appPath);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (route === 'resolving_profile') {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-4 p-6 font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-xs">
+          <Spinner size="md" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-sm font-bold text-slate-800 tracking-tight">Loading profile…</p>
+          <p className="text-xs text-slate-400 font-mono">linkvm.online</p>
+        </div>
+      </div>
+    );
+  }
 
   if (route === 'login') {
     return <LoginPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;

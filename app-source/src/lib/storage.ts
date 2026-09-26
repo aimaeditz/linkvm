@@ -39,7 +39,11 @@ import {
   getDocs,
   writeBatch,
   runTransaction,
+  query,
+  where,
+  limit,
 } from 'firebase/firestore';
+import { normalizeUsername } from './username-patterns';
 
 function assertFirebaseConfigured(): void {
   if (!isFirebaseConfigured) {
@@ -48,6 +52,24 @@ function assertFirebaseConfigured(): void {
       'Firebase is not configured. Missing required environment variables: VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID, VITE_FIREBASE_APP_ID.';
     console.error(`[Firebase Configuration Error] ${errorMsg}`);
     throw new Error(errorMsg);
+  }
+}
+
+export interface PublicProfileBundle {
+  user: User;
+  links: LinkItem[];
+  theme: ThemeConfig;
+  socials: SocialLinks;
+  timestamp: number;
+}
+
+const profileBundleCache = new Map<string, PublicProfileBundle>();
+
+export function invalidateProfileCache(username?: string) {
+  if (username) {
+    profileBundleCache.delete(normalizeUsername(username));
+  } else {
+    profileBundleCache.clear();
   }
 }
 
@@ -566,15 +588,21 @@ export class StorageService {
   }
 
   static async findUserByUsernameAsync(username: string): Promise<User | null> {
-    const clean = slugify(username);
+    const clean = normalizeUsername(username);
     if (!clean) return null;
 
     if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
       return cachedCurrentUser;
     }
 
+    const cachedBundle = profileBundleCache.get(clean);
+    if (cachedBundle?.user) {
+      return cachedBundle.user;
+    }
+
     assertFirebaseConfigured();
     try {
+      // 1. Direct lookup in usernames index
       const unameDocRef = doc(db, 'usernames', clean);
       const unameSnap = await getDoc(unameDocRef);
       if (unameSnap.exists()) {
@@ -588,10 +616,22 @@ export class StorageService {
         }
       }
 
-      // Direct fallback lookup by uid/id
+      // 2. Direct fallback lookup by uid/id in users collection
       const directUserSnap = await getDoc(doc(db, 'users', clean));
       if (directUserSnap.exists()) {
         return directUserSnap.data() as User;
+      }
+
+      // 3. Fallback query by username field in users collection
+      try {
+        const q = query(collection(db, 'users'), where('username', '==', clean), limit(1));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+          const docData = qSnap.docs[0].data() as User;
+          return docData;
+        }
+      } catch (queryErr) {
+        console.warn('Fallback username query error:', queryErr);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `usernames/${clean}`);
@@ -600,10 +640,69 @@ export class StorageService {
     return null;
   }
 
+  static async getFullPublicProfileAsync(
+    username: string
+  ): Promise<PublicProfileBundle | null> {
+    const clean = normalizeUsername(username);
+    if (!clean) return null;
+
+    // 1. Check in-memory bundle cache (valid for 60s)
+    const cached = profileBundleCache.get(clean);
+    if (cached && Date.now() - cached.timestamp < 60000) {
+      return cached;
+    }
+
+    // 2. Check if logged-in user matches
+    if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
+      const bundle: PublicProfileBundle = {
+        user: cachedCurrentUser,
+        links: cachedLinks.filter((l) => l.visible).sort((a, b) => a.position - b.position),
+        theme: cachedTheme || presetToConfig(THEME_PRESETS[0], cachedCurrentUser.id),
+        socials: cachedSocials || { id: 'default', userId: cachedCurrentUser.id },
+        timestamp: Date.now(),
+      };
+      profileBundleCache.set(clean, bundle);
+      return bundle;
+    }
+
+    // 3. Find user asynchronously
+    const user = await StorageService.findUserByUsernameAsync(clean);
+    if (!user) {
+      return null;
+    }
+
+    // 4. Fetch links, theme, socials in parallel
+    try {
+      const [links, theme, socials] = await Promise.all([
+        StorageService.getLinksForUserAsync(user.id),
+        StorageService.getThemeForUserAsync(user.id),
+        StorageService.getSocialsForUserAsync(user.id),
+      ]);
+
+      const bundle: PublicProfileBundle = {
+        user,
+        links: links || [],
+        theme: theme || presetToConfig(THEME_PRESETS[0], user.id),
+        socials: socials || { id: 'default', userId: user.id },
+        timestamp: Date.now(),
+      };
+
+      profileBundleCache.set(clean, bundle);
+      return bundle;
+    } catch (err) {
+      console.warn('Error fetching full public profile data:', err);
+      return null;
+    }
+  }
+
   static findUserByUsername(username: string): User | null {
-    const clean = slugify(username);
+    const clean = normalizeUsername(username);
     if (cachedCurrentUser && cachedCurrentUser.username.toLowerCase() === clean) {
       return cachedCurrentUser;
+    }
+    const cachedBundle = profileBundleCache.get(clean);
+    if (cachedBundle?.user) {
+      return cachedBundle.user;
     }
     return null;
   }
