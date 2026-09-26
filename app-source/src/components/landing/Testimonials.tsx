@@ -10,21 +10,33 @@ export const Testimonials: React.FC = () => {
       Icon: Link2,
       title: 'Unlimited Links',
       text: 'Add every social account, portfolio, and business link in one place. No caps, no limits.',
+      gradient: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)',
+      iconBg: 'bg-indigo-100/80 text-indigo-600',
+      border: 'border-indigo-100/80',
     },
     {
       Icon: Palette,
       title: '34 Themes Unlocked',
       text: 'Choose from dozens of premium themes. Every theme is 100% free forever.',
+      gradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+      iconBg: 'bg-emerald-100/80 text-emerald-700',
+      border: 'border-emerald-100/80',
     },
     {
       Icon: BarChart3,
       title: 'Real-Time Analytics',
       text: 'Track views, clicks, and referrers with privacy-first analytics. Clean conversion metrics.',
+      gradient: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+      iconBg: 'bg-amber-100/80 text-amber-700',
+      border: 'border-amber-100/80',
     },
     {
       Icon: QrCode,
       title: 'Instant QR Codes',
       text: 'Generate high-resolution QR codes in PNG and SVG. Ready for print or digital sharing.',
+      gradient: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+      iconBg: 'bg-sky-100/80 text-sky-700',
+      border: 'border-sky-100/80',
     },
   ];
 
@@ -57,10 +69,11 @@ export const Testimonials: React.FC = () => {
                   delay: shouldReduceMotion ? 0 : idx * 0.08,
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="rounded-2xl border border-slate-200/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                style={{ background: item.gradient }}
+                className={`rounded-2xl border ${item.border} shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 flex flex-col justify-between`}
               >
                 <div>
-                  <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-5">
+                  <div className={`w-10 h-10 rounded-full ${item.iconBg} flex items-center justify-center mb-5`}>
                     <Icon size={20} />
                   </div>
 
@@ -68,7 +81,7 @@ export const Testimonials: React.FC = () => {
                     {item.title}
                   </h3>
 
-                  <p className="text-sm text-slate-500 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {item.text}
                   </p>
                 </div>
