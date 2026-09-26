@@ -15,9 +15,9 @@ const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID;
 const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
-if (!apiKey || !authDomain || !projectId) {
+if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
   const errMsg =
-    '[LinkVM Error] Missing required Firebase configuration in environment variables. VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, and VITE_FIREBASE_PROJECT_ID are required.';
+    '[LinkVM Error] Missing required Firebase configuration in environment variables. VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID, and VITE_FIREBASE_APP_ID are required.';
   console.error(errMsg);
   throw new Error(errMsg);
 }
