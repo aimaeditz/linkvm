@@ -361,9 +361,9 @@ export default function App() {
   // Safe fallback user object if in preview/dashboard
   const activeUser: User = currentUser || {
     id: 'guest',
-    name: 'Creator',
-    username: 'creator',
-    email: 'creator@linkvm.online',
+    name: 'Google Creator',
+    username: 'google-creator',
+    email: 'google-creator@linkvm.online',
     bio: 'Consolidate all your links into one place.',
     avatarUrl: '',
     headerLayout: 'classic',

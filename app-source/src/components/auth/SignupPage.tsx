@@ -164,9 +164,10 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSuccess, onNavigate })
   const handleOAuth = (provider: 'google' | 'github') => {
     setLoading(true);
     setTimeout(() => {
-      const providerEmail = `${provider}_creator@linkvm.online`;
+      const providerEmail = `${provider}-creator@linkvm.online`;
       const providerName = `${provider.charAt(0).toUpperCase() + provider.slice(1)} Creator`;
-      StorageService.loginWithOAuth(provider, providerEmail, providerName);
+      const preferredUsername = `${provider}-creator`;
+      StorageService.loginWithOAuth(provider, providerEmail, providerName, preferredUsername);
       setLoading(false);
       handleSuccess();
     }, 400);

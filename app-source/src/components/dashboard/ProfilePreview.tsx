@@ -20,7 +20,8 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
   socials,
 }) => {
   const visibleLinks = links.filter((l) => l.visible);
-  const displayUrl = buildPatternDisplayUrl(user.sharePattern || '{username}', user.username);
+  const cleanUsername = (user.username || 'google-creator').replace(/^[@$\-+!~]/, '').trim();
+  const displayUrl = `linkvm.online/${cleanUsername}`;
 
   const getButtonShapeClass = (shape: string) => {
     switch (shape) {
@@ -240,13 +241,16 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
           </div>
 
           {/* Footer Brand Credit */}
-          <div className="pt-5 pb-2 text-center relative z-10">
+          <div className="pt-5 pb-2 text-center relative z-10 space-y-1">
+            <div className="text-[10px] font-mono font-semibold opacity-75" style={{ color: theme.textColor }}>
+              linkvm.online/{user.username || 'google-creator'}
+            </div>
             <div className="inline-flex items-center gap-1 text-[10px] font-bold opacity-60" style={{ color: theme.textColor }}>
               <span>Made with LinkVM</span>
               <span>•</span>
               <span>100% Free Forever</span>
             </div>
-            <div className="text-[8px] font-medium opacity-40 mt-1" style={{ color: theme.textColor }}>
+            <div className="text-[8px] font-medium opacity-40" style={{ color: theme.textColor }}>
               Created by AiMAEditz
             </div>
           </div>

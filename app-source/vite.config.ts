@@ -26,7 +26,7 @@ function getComputedBase(mode: string): string {
       // Fallback below
     }
   }
-  return '/linkvm/';
+  return '/';
 }
 
 function preserveRootBuildPlugin(): Plugin {

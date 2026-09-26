@@ -248,10 +248,13 @@ export class StorageService {
     return this.login(email, password, rememberMe);
   }
 
-  static loginWithOAuth(provider: 'google' | 'github', email: string, name: string): User {
+  static loginWithOAuth(provider: 'google' | 'github', email: string, name: string, preferredUsername?: string): User {
     let existing = this.findUserByEmail(email);
     if (!existing) {
-      const username = this.generateUniqueUsername(email);
+      let username = preferredUsername ? slugify(preferredUsername) : '';
+      if (!username || !this.checkUsernameAvailability(username)) {
+        username = this.generateUniqueUsername(email);
+      }
       const userId = generateId();
       const now = new Date().toISOString();
       const newUser: StoredUserAccount = {

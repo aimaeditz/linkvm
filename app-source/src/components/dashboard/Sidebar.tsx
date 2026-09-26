@@ -44,9 +44,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showPatternPopover, setShowPatternPopover] = useState(false);
 
   const siteUrl = getSiteUrl();
+  const cleanUsername = (user.username || 'google-creator').replace(/^[@$\-+!~]/, '').trim();
+  const fullPublicUrl = `https://linkvm.online/${cleanUsername}`;
+  const displayUrl = `linkvm.online/${cleanUsername}`;
   const sharePattern = user.sharePattern || '{username}';
-  const fullPublicUrl = buildPatternUrl(sharePattern, user.username, siteUrl);
-  const displayUrl = buildPatternDisplayUrl(sharePattern, user.username);
 
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },

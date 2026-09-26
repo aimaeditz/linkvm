@@ -13,13 +13,13 @@ interface QRCodePageProps {
 }
 
 export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
-  const siteUrl = getSiteUrl();
-  const publicUrl = buildPatternUrl(user?.sharePattern || '{username}', user?.username || 'user', siteUrl);
-  const displayUrl = buildPatternDisplayUrl(user?.sharePattern || '{username}', user?.username || 'user', siteUrl);
+  const cleanUsername = (user?.username || 'user').replace(/^[@$\-+!~]/, '').trim();
+  const customQrUrl = `https://linkvm.online/${cleanUsername}`;
+  const customQrDisplay = `linkvm.online/${cleanUsername}`;
   
   // Referral config using short token-based format linkvm.online/r/{code}
-  const referralCode = user?.referralCode || generateReferralCode(user?.username || 'user', user?.id || 'guest');
-  const referralUrl = buildReferralUrl(referralCode);
+  const referralCode = user?.referralCode || generateReferralCode(cleanUsername, user?.id || 'guest');
+  const referralUrl = `https://linkvm.online/r/${referralCode}`;
   const inviteCount = user?.invitesAccepted ?? user?.invitesSent ?? 0;
 
   const [fgColor, setFgColor] = useState('#0F172A');
@@ -82,7 +82,7 @@ export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
   };
 
   const handleCopyUrl = async () => {
-    const ok = await copyToClipboard(publicUrl);
+    const ok = await copyToClipboard(customQrUrl);
     if (ok) {
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2000);
@@ -359,7 +359,7 @@ export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
               >
                 <QRCodeSVG
                   id="linkvm-qr-svg"
-                  value={publicUrl}
+                  value={customQrUrl}
                   size={220}
                   fgColor={fgColor}
                   bgColor={bgColor}
@@ -372,7 +372,7 @@ export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
               {/* Hidden canvas for PNG export */}
               <div ref={canvasRef} className="hidden">
                 <QRCodeCanvas
-                  value={publicUrl}
+                  value={customQrUrl}
                   size={size}
                   fgColor={fgColor}
                   bgColor={bgColor}
@@ -385,7 +385,7 @@ export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
               {/* URL label */}
               <div className="text-center space-y-1">
                 <p className="text-xs font-bold text-slate-800 truncate max-w-xs font-mono">
-                  {displayUrl}
+                  {customQrDisplay}
                 </p>
                 <p className="text-[11px] text-slate-400">Scan to open LinkVM creator profile</p>
               </div>

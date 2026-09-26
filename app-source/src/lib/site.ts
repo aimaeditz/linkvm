@@ -1,5 +1,5 @@
 // Site helper for environment-driven domain and URL resolution
-// Reads from centralized VITE_SITE_URL environment variable with robust fallbacks.
+// Centralized domain management with linkvm.online as canonical domain.
 
 export function getSiteUrl(): string {
   // 1. Vite environment variable (primary for client-side Vite SPA build)
@@ -17,17 +17,8 @@ export function getSiteUrl(): string {
     return processUrl.trim().replace(/\/+$/, '');
   }
 
-  // 3. Window origin fallback in client-side runtime
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    const base = ((import.meta as any)?.env?.BASE_URL || '/').replace(/\/+$/, '');
-    if (base && base !== '/' && window.location.pathname.startsWith(base)) {
-      return `${window.location.origin}${base}`;
-    }
-    return window.location.origin.replace(/\/+$/, '');
-  }
-
-  // Default fallback (GitHub Pages repository deployment)
-  return 'https://aimaeditz.github.io/linkvm';
+  // Canonical production domain default (strictly linkvm.online, never auto-generated dev URLs)
+  return 'https://linkvm.online';
 }
 
 export function getSiteDomain(): string {
@@ -37,12 +28,12 @@ export function getSiteDomain(): string {
 
 export function getProfileUrl(username: string): string {
   const domainOnly = getSiteDomain();
-  const cleanUsername = username.replace(/^@/, '').trim();
+  const cleanUsername = (username || '').replace(/^[@$\-+!~]/, '').trim();
   return `${domainOnly}/${cleanUsername}`;
 }
 
 export function getFullProfileUrl(username: string): string {
   const siteUrl = getSiteUrl();
-  const cleanUsername = username.replace(/^@/, '').trim();
+  const cleanUsername = (username || '').replace(/^[@$\-+!~]/, '').trim();
   return `${siteUrl}/${cleanUsername}`;
 }

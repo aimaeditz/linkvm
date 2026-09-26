@@ -63,7 +63,8 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const handlePreviewPage = () => {
     if (!user.username) return;
-    const url = `${getSiteUrl()}/${user.username}`;
+    const cleanUsername = user.username.replace(/^[@$\-+!~]/, '').trim();
+    const url = `https://linkvm.online/${cleanUsername}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

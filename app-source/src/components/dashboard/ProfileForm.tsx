@@ -88,7 +88,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     onChange({ sharePattern: pattern });
   };
 
-  const siteDomain = getSiteUrl().replace(/^https?:\/\//, '');
+  const siteDomain = 'linkvm.online';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
@@ -109,7 +109,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               <p className="text-xs text-slate-500">Display name, unique username handle, bio, and avatar link</p>
             </div>
             <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
-              {siteDomain}/{formData.username || 'creator'}
+              linkvm.online/{formData.username || user.username || 'google-creator'}
             </div>
           </div>
 
@@ -134,22 +134,22 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
 
                 {checkStatus === 'checking' && (
                   <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin text-slate-400" /> Checking availability…
+                    <Loader2 className="w-3 h-3 animate-spin text-slate-400" /> Checking linkvm.online/{formData.username}…
                   </span>
                 )}
                 {checkStatus === 'available' && (
                   <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Available
+                    <CheckCircle2 className="w-3 h-3" /> linkvm.online/{formData.username} is available
                   </span>
                 )}
                 {checkStatus === 'taken' && (
                   <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> Already taken
+                    <AlertCircle className="w-3 h-3" /> linkvm.online/{formData.username} is already taken
                   </span>
                 )}
                 {checkStatus === 'reserved' && (
                   <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Reserved username
+                    <AlertTriangle className="w-3 h-3" /> linkvm.online/{formData.username} is reserved
                   </span>
                 )}
                 {checkStatus === 'invalid' && (
@@ -161,7 +161,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
 
               <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:border-slate-900 transition bg-white">
                 <span className="inline-flex items-center px-3.5 bg-slate-50 border-r border-slate-200 text-xs font-mono text-slate-500 font-semibold select-none shrink-0">
-                  {siteDomain}/
+                  linkvm.online/
                 </span>
                 <input
                   type="text"

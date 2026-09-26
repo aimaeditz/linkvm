@@ -33,10 +33,10 @@ export const ShareMenu: React.FC<ShareMenuProps> = ({
 
   if (!isOpen) return null;
 
-  const siteUrl = getSiteUrl();
-  const publicUrl = buildPatternUrl(selectedPattern, username, siteUrl);
-  const displayUrl = buildPatternDisplayUrl(selectedPattern, username, siteUrl);
-  const displayName = name || username;
+  const cleanUsername = (username || '').replace(/^[@$\-+!~]/, '').trim();
+  const publicUrl = `https://linkvm.online/${cleanUsername}`;
+  const displayUrl = `linkvm.online/${cleanUsername}`;
+  const displayName = name || cleanUsername;
 
   const handleCopy = async () => {
     const ok = await copyToClipboard(publicUrl);
