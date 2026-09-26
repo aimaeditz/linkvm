@@ -32,25 +32,17 @@ function getComputedBase(mode: string): string {
 function preserveRootBuildPlugin(): Plugin {
   return {
     name: 'preserve-root-build-plugin',
-    config() {
-      return {
-        build: {
-          emptyOutDir: false,
-        },
-      };
-    },
-    configResolved(config) {
-      config.build.emptyOutDir = false;
-      if (config.environments) {
-        for (const envKey of Object.keys(config.environments)) {
-          const env = (config.environments as Record<string, { build?: { emptyOutDir?: boolean } }>)[envKey];
-          if (env && env.build) {
-            env.build.emptyOutDir = false;
-          }
+    buildStart() {
+      // Safe clean of app-source/dist
+      const distDir = path.resolve(__dirname, 'dist');
+      if (fs.existsSync(distDir)) {
+        try {
+          fs.rmSync(distDir, { recursive: true, force: true });
+        } catch {
+          // ignore
         }
       }
-    },
-    buildStart() {
+
       // Safe clean of root: cleans previous build artifacts (assets/, old html/manifest), strictly preserving source code & metadata & config
       const rootDir = path.resolve(__dirname, '..');
       const preserved = new Set([

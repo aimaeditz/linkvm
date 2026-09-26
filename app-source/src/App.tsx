@@ -18,6 +18,7 @@ import { Footer } from './components/landing/Footer';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignupPage } from './components/auth/SignupPage';
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 
 // Dashboard Components
 import { Sidebar } from './components/dashboard/Sidebar';
@@ -142,6 +143,7 @@ export default function App() {
       'login',
       'signup',
       'forgot-password',
+      'reset-password',
       'dashboard',
       'why-free',
       'about',
@@ -221,6 +223,11 @@ export default function App() {
 
     if (firstSegment === 'forgot-password') {
       setRoute('forgot-password');
+      return;
+    }
+
+    if (firstSegment === 'reset-password') {
+      setRoute('reset-password');
       return;
     }
 
@@ -324,6 +331,7 @@ export default function App() {
     else if (targetRoute === 'login') newPath = '/login';
     else if (targetRoute === 'signup') newPath = '/signup';
     else if (targetRoute === 'forgot-password') newPath = '/forgot-password';
+    else if (targetRoute === 'reset-password') newPath = '/reset-password';
     else if (targetRoute === 'about') newPath = '/about';
     else if (targetRoute === 'privacy') newPath = '/privacy';
     else if (targetRoute === 'terms') newPath = '/terms';
@@ -387,6 +395,10 @@ export default function App() {
 
   if (route === 'forgot-password') {
     return <ForgotPasswordPage onNavigate={handleNavigate} />;
+  }
+
+  if (route === 'reset-password') {
+    return <ResetPasswordPage onNavigate={handleNavigate} />;
   }
 
   if (route === 'about') {

@@ -105,7 +105,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     },
     {
       id: 'nav-appearance',
-      title: 'Go to Appearance (28 Free Themes)',
+      title: 'Go to Appearance (48 Free Themes)',
       category: 'Navigation',
       icon: Palette,
       action: () => {
@@ -144,12 +144,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       },
     },
     {
-      id: 'nav-changelog',
-      title: 'View Changelog',
+      id: 'nav-guide',
+      title: 'Go to Guide & About',
       category: 'Navigation',
       icon: Sparkles,
       action: () => {
-        onNavigateTab('changelog');
+        onNavigateTab('guide');
         onClose();
       },
     },

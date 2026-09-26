@@ -3,30 +3,28 @@ import { Logo } from '../shared/Logo';
 import { AuthService } from '../../lib/storage';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
-import { Mail, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
 
-export interface ForgotPasswordPageProps {
+export interface ResetPasswordPageProps {
   onNavigate?: (route: string) => void;
 }
 
-export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNavigate }) => {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onNavigate }) => {
+  const [token, setToken] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [cooldown, setCooldown] = useState(0);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
-    if (cooldown > 0) {
-      timer = setInterval(() => {
-        setCooldown((prev) => prev - 1);
-      }, 1000);
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('token');
+    if (t) {
+      setToken(t);
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [cooldown]);
+  }, []);
 
   const handleNavigate = (route: string) => {
     if (onNavigate) {
@@ -40,30 +38,31 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNaviga
     e.preventDefault();
     setError('');
 
-    if (!email || !email.includes('@')) {
-      setError('Please provide a valid email address.');
+    if (!token) {
+      setError('Missing or invalid reset token.');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setError('Password must contain at least 8 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
     setLoading(true);
-    const res = await AuthService.requestPasswordReset(email);
+    const res = await AuthService.resetPassword(token, password);
     setLoading(false);
 
-    if (res.error) {
-      setError(res.error);
+    if (!res.success) {
+      setError(res.error || 'Failed to reset password.');
       return;
     }
 
-    setSubmitted(true);
-    setCooldown(60);
-  };
-
-  const handleResend = async () => {
-    if (cooldown > 0) return;
-    setLoading(true);
-    await AuthService.requestPasswordReset(email);
-    setLoading(false);
-    setCooldown(60);
+    setSuccess(true);
   };
 
   return (
@@ -83,17 +82,17 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNaviga
         </div>
 
         <div className="w-full rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.08)] p-8 md:p-10">
-          {!submitted ? (
+          {!success ? (
             <>
               <div className="text-center mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mx-auto mb-4 shadow-soft">
-                  <Mail size={22} />
+                  <KeyRound size={22} />
                 </div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                  Reset password
+                  Set new password
                 </h1>
                 <p className="text-xs text-slate-500 mt-1.5 font-semibold">
-                  We&apos;ll send you a secure password reset link.
+                  Choose a strong, unique password for your account.
                 </p>
               </div>
 
@@ -105,20 +104,63 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNaviga
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!token && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Reset Token
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="Paste your reset token"
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-soft"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Email Address
+                    New Password
                   </label>
                   <div className="relative flex items-center">
                     <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-                      <Mail size={16} />
+                      <Lock size={16} />
                     </div>
                     <input
                       required
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@domain.com"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-soft"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Confirm New Password
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      required
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
                       className="w-full h-11 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-soft"
                     />
                   </div>
@@ -134,7 +176,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNaviga
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        <span>Send Reset Link</span>
+                        <span>Update Password</span>
                         <ArrowRight
                           size={16}
                           className="group-hover:translate-x-1 transition-transform"
@@ -162,28 +204,20 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onNaviga
                 <CheckCircle2 size={30} />
               </div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Check your inbox
+                Password updated!
               </h2>
               <p className="text-xs text-slate-500 mt-2 leading-relaxed font-semibold">
-                If an account exists for <span className="font-bold text-slate-900">{email}</span>, you will receive password reset instructions shortly.
+                Your password has been successfully reset. You can now sign in with your new credentials.
               </p>
 
-              <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col gap-3">
-                <button
-                  type="button"
-                  disabled={cooldown > 0 || loading}
-                  onClick={handleResend}
-                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-soft transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {cooldown > 0 ? `Resend link in ${cooldown}s` : 'Resend reset link'}
-                </button>
-
+              <div className="mt-8 pt-6 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => handleNavigate('login')}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-bold cursor-pointer mt-1"
+                  className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-soft transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Return to sign in
+                  <span>Sign In</span>
+                  <ArrowRight size={16} />
                 </button>
               </div>
             </div>

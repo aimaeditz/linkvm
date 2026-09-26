@@ -13,6 +13,8 @@ export interface User {
   accentColor?: string | null;
   sharePattern?: string;
   invitesSent?: number;
+  invitesAccepted?: number;
+  referralCode?: string;
   headerLayout?: 'classic' | 'hero' | 'banner' | 'cutout' | 'shape';
   titleStyle?: 'text' | 'logo';
   titleFont?: string;

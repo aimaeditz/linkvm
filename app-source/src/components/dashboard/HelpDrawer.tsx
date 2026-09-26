@@ -24,7 +24,7 @@ export const HelpDrawer: React.FC<HelpDrawerProps> = ({ isOpen, onClose }) => {
     { title: 'Claim your unique username', completed: hasUsername },
     { title: 'Set up your profile avatar and bio', completed: hasProfile },
     { title: 'Add your first link', completed: hasLinks },
-    { title: 'Choose a personalized theme (28 free presets)', completed: hasTheme },
+    { title: 'Choose a personalized theme (48 free presets)', completed: hasTheme },
     { title: 'Share your public link (linkvm.online)', completed: hasLinks && hasProfile },
   ];
 

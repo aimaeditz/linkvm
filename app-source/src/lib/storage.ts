@@ -22,6 +22,7 @@ const STORAGE_KEYS = {
   USER_THEME_PREFIX: 'linkvm_theme_user_',
   USER_SOCIALS_PREFIX: 'linkvm_socials_user_',
   USER_ANALYTICS_PREFIX: 'linkvm_analytics_user_',
+  RESET_TOKENS: 'linkvm_reset_tokens',
 };
 
 function generateId(): string {
@@ -218,6 +219,8 @@ export class AuthService {
       accentColor: null,
       sharePattern: '{username}',
       invitesSent: 0,
+      invitesAccepted: 0,
+      referralCode: `${username}-${userId.slice(0, 4)}`,
       notifications: {
         weeklySummary: true,
         securityAlerts: true,
@@ -237,11 +240,16 @@ export class AuthService {
     if (isBrowser()) {
       const refCode = localStorage.getItem('linkvm_ref_code');
       if (refCode) {
+        const cleanRef = refCode.trim().toLowerCase();
         const referrerIndex = users.findIndex(
-          (u) => u.username.toLowerCase() === refCode.toLowerCase()
+          (u) =>
+            u.username.toLowerCase() === cleanRef ||
+            u.referralCode?.toLowerCase() === cleanRef ||
+            u.username.toLowerCase() === cleanRef.split('-')[0]
         );
         if (referrerIndex !== -1) {
           users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
+          users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
         }
         localStorage.removeItem('linkvm_ref_code');
       }
@@ -302,6 +310,8 @@ export class AuthService {
         avatarUrl: '',
         sharePattern: '{username}',
         invitesSent: 0,
+        invitesAccepted: 0,
+        referralCode: `${username}-${userId.slice(0, 4)}`,
         notifications: {
           weeklySummary: true,
           securityAlerts: true,
@@ -316,6 +326,25 @@ export class AuthService {
         updatedAt: now,
       };
       const users = getAllStoredUsers();
+
+      if (isBrowser()) {
+        const refCode = localStorage.getItem('linkvm_ref_code');
+        if (refCode) {
+          const cleanRef = refCode.trim().toLowerCase();
+          const referrerIndex = users.findIndex(
+            (u) =>
+              u.username.toLowerCase() === cleanRef ||
+              u.referralCode?.toLowerCase() === cleanRef ||
+              u.username.toLowerCase() === cleanRef.split('-')[0]
+          );
+          if (referrerIndex !== -1) {
+            users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
+            users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
+          }
+          localStorage.removeItem('linkvm_ref_code');
+        }
+      }
+
       users.push(newUser);
       saveAllStoredUsers(users);
 
@@ -412,6 +441,74 @@ export class AuthService {
 
     this.logoutSync();
   }
+
+  static async requestPasswordReset(email: string): Promise<{ success: boolean; token?: string; error?: string }> {
+    if (!email || !email.includes('@')) {
+      return { success: false, error: 'Please provide a valid email address.' };
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const account = findStoredUserByEmail(cleanEmail);
+    if (!account) {
+      return { success: true };
+    }
+    const token = 'rst_' + generateId() + Date.now().toString(36);
+    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+    if (isBrowser()) {
+      const raw = localStorage.getItem(STORAGE_KEYS.RESET_TOKENS);
+      let tokens: { token: string; email: string; expiresAt: number }[] = [];
+      if (raw) {
+        try {
+          tokens = JSON.parse(raw);
+        } catch {
+          tokens = [];
+        }
+      }
+      tokens = tokens.filter((t) => t.expiresAt > Date.now() && t.email !== cleanEmail);
+      tokens.push({ token, email: cleanEmail, expiresAt });
+      localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
+    }
+    return { success: true, token };
+  }
+
+  static async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    if (!token) return { success: false, error: 'Invalid or missing reset token.' };
+    if (!newPassword || newPassword.length < 8) {
+      return { success: false, error: 'Password must contain at least 8 characters.' };
+    }
+    if (!isBrowser()) return { success: false, error: 'Browser environment required.' };
+
+    const raw = localStorage.getItem(STORAGE_KEYS.RESET_TOKENS);
+    if (!raw) return { success: false, error: 'Reset token not found or expired.' };
+    let tokens: { token: string; email: string; expiresAt: number }[] = [];
+    try {
+      tokens = JSON.parse(raw);
+    } catch {
+      return { success: false, error: 'Invalid reset token format.' };
+    }
+
+    const entryIndex = tokens.findIndex((t) => t.token === token);
+    if (entryIndex === -1) return { success: false, error: 'Reset token is invalid.' };
+    const entry = tokens[entryIndex];
+    if (Date.now() > entry.expiresAt) {
+      tokens.splice(entryIndex, 1);
+      localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
+      return { success: false, error: 'Reset token has expired.' };
+    }
+
+    const account = findStoredUserByEmail(entry.email);
+    if (!account) return { success: false, error: 'User account not found.' };
+
+    account.passwordHash = bcrypt.hashSync(newPassword, 12);
+    account.updatedAt = new Date().toISOString();
+
+    const users = getAllStoredUsers().map((u) => (u.id === account.id ? account : u));
+    saveAllStoredUsers(users);
+
+    tokens.splice(entryIndex, 1);
+    localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
+
+    return { success: true };
+  }
 }
 
 export class StorageService {
@@ -503,6 +600,8 @@ export class StorageService {
       accentColor: null,
       sharePattern: '{username}',
       invitesSent: 0,
+      invitesAccepted: 0,
+      referralCode: `${username}-${userId.slice(0, 4)}`,
       notifications: {
         weeklySummary: true,
         securityAlerts: true,
@@ -522,11 +621,16 @@ export class StorageService {
     if (isBrowser()) {
       const refCode = localStorage.getItem('linkvm_ref_code');
       if (refCode) {
+        const cleanRef = refCode.trim().toLowerCase();
         const referrerIndex = users.findIndex(
-          (u) => u.username.toLowerCase() === refCode.toLowerCase()
+          (u) =>
+            u.username.toLowerCase() === cleanRef ||
+            u.referralCode?.toLowerCase() === cleanRef ||
+            u.username.toLowerCase() === cleanRef.split('-')[0]
         );
         if (referrerIndex !== -1) {
           users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
+          users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
         }
         localStorage.removeItem('linkvm_ref_code');
       }
