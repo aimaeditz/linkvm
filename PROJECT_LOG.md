@@ -45,3 +45,16 @@ Files touched:
 Commit: prod-pass-01
 Open issues: none
 
+## 2026-09-26
+Summary: Fixed build errors, preserved firestore.rules from Vite build bundle cleaning, synchronized package scripts, resolved unused imports, and validated zero-error compilation across tsc and vite.
+Files touched:
+- app-source/vite.config.ts
+- app-source/src/components/dashboard/ProfileForm.tsx
+- app-source/src/components/dashboard/OverviewPage.tsx
+- app-source/src/components/dashboard/AppearancePage.tsx
+- app-source/src/components/dashboard/QRCodePage.tsx
+- firestore.rules
+- PROJECT_LOG.md
+Commit: build-fix-pass
+Open issues: none
+

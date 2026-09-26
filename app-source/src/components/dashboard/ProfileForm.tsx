@@ -1,8 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { User, LinkItem, ThemeConfig } from '../../types';
 import { StorageService, checkUsernameAvailableInFirestore } from '../../lib/storage';
 import { validateUsername, isReservedUsername } from '../../lib/reserved-usernames';
-import { getSiteUrl } from '../../lib/site';
 import { CheckCircle2, AlertCircle, Loader2, AlertTriangle, Link as LinkIcon } from 'lucide-react';
 import { MediaManager } from './MediaManager';
 import { PatternList } from './PatternList';

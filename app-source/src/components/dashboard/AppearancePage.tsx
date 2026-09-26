@@ -5,7 +5,7 @@ import { ThemeControls } from './ThemeControls';
 import { ProfilePreview } from './ProfilePreview';
 import { MobilePreviewToggle } from './MobilePreviewToggle';
 import { StorageService } from '../../lib/storage';
-import { Palette, Sliders, Check, Save, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Palette, Sliders, Check, Save, Loader2, AlertCircle } from 'lucide-react';
 import { presetToConfig } from '../../lib/themes';
 import { themeOverrideSchema } from '../../lib/validators';
 

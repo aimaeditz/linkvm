@@ -19,7 +19,6 @@ import {
   Activity,
   QrCode,
 } from 'lucide-react';
-import { buildPatternDisplayUrl, buildPatternUrl } from '../../lib/username-patterns';
 import { getSiteUrl } from '../../lib/site';
 import { BRAND } from '../../lib/constants';
 

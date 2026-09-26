@@ -49,6 +49,7 @@ function preserveRootBuildPlugin(): Plugin {
         'bun.lock',
         'metadata.json',
         'vercel.json',
+        'firestore.rules',
         'CNAME',
         '.env',
         '.env.example',
