@@ -2,7 +2,6 @@ import React from 'react';
 import { Logo } from '../shared/Logo';
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { BRAND } from '../../lib/constants';
 
 export interface FooterProps {
   onNavigate?: (route: string) => void;
@@ -34,11 +33,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const companyLinks = [
     { label: 'About', target: 'about' },
     { label: 'Contact', target: 'contact' },
-  ];
-
-  const legalLinks = [
     { label: 'Privacy Policy', target: 'privacy' },
     { label: 'Terms of Service', target: 'terms' },
+  ];
+
+  const exploreLinks = [
+    { label: 'MTV Hub', href: 'http://multitubeviews.com/' },
+    { label: 'PMT Hub', href: 'https://publicmediatool.com/' },
   ];
 
   return (
@@ -90,20 +91,21 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </ul>
             </div>
 
-            <div className="flex flex-col gap-3 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-3">
               <h4 className="text-[11px] uppercase tracking-[0.15em] text-slate-400 font-medium">
-                Legal
+                Explore
               </h4>
               <ul className="space-y-2">
-                {legalLinks.map((link) => (
+                {exploreLinks.map((link) => (
                   <li key={link.label}>
-                    <button
-                      type="button"
-                      onClick={() => handleLink(link.target)}
-                      className="text-sm text-slate-600 hover:text-slate-900 transition-colors cursor-pointer text-left"
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                     >
                       {link.label}
-                    </button>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -164,11 +166,18 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start">
               <Logo size="sm" showSubtitle={false} />
-              <span className="text-xs text-slate-400 mt-1">{BRAND.domain}</span>
             </div>
             <div className="flex flex-col text-right leading-tight">
               <span className="text-xs text-slate-500">© 2026 LinkVM. All rights reserved.</span>
               <span className="text-xs text-slate-400">Created by AiMAEditz</span>
+              <a
+                href="https://linkvm.online/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                linkvm.online
+              </a>
             </div>
           </div>
         </div>
