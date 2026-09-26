@@ -16,16 +16,14 @@ Commit: 7ffeb60
 Open issues: none
 
 ## 2026-09-26
-Summary: Demo mode fully removed, subdomain positive allowlist verified, stale bundles cleaned to single JS+CSS pair, build verified green, push blocked by missing GitHub credentials.
+Summary: Fixed Google sign-in via Firebase with host-aware authorization check, separated /login and /signup auth screens, removed non-production domains from auth flow, and enforced real Google identity only.
 Files touched:
+- app-source/src/lib/auth-host.ts
+- app-source/src/components/auth/LoginPage.tsx
+- app-source/src/components/auth/SignupPage.tsx
+- app-source/src/App.tsx
 - app-source/src/lib/firebase.ts
 - app-source/src/lib/storage.ts
-- app-source/src/lib/themes.ts
-- app-source/src/components/dashboard/ProfileForm.tsx
-- app-source/vite.config.ts
 - PROJECT_LOG.md
-- index.html
-- assets/index-Bs6ByZy6.js
-- assets/index-Daf9-YND.css
-Commit: pending local commit
-Open issues: GitHub push blocked by missing session credentials
+Commit: cc9a074
+Open issues: none

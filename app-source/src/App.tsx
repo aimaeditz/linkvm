@@ -204,10 +204,7 @@ export default function App() {
         setRoute('dashboard');
         setDashboardTab('overview');
       } else {
-        if (firstSegment === 'signup') {
-          window.history.replaceState(null, '', getAppPath('/login'));
-        }
-        setRoute('login');
+        setRoute(firstSegment);
       }
       return;
     }
@@ -302,8 +299,9 @@ export default function App() {
 
   const handleNavigate = (targetRoute: string) => {
     let newPath = '/';
-    if (targetRoute === 'landing') newPath = '/';
-    else if (targetRoute === 'login' || targetRoute === 'signup') newPath = '/login';
+    if (targetRoute === 'landing' || targetRoute === '') newPath = '/';
+    else if (targetRoute === 'login') newPath = '/login';
+    else if (targetRoute === 'signup') newPath = '/signup';
     else if (targetRoute === 'about') newPath = '/about';
     else if (targetRoute === 'privacy') newPath = '/privacy';
     else if (targetRoute === 'terms') newPath = '/terms';
@@ -340,7 +338,11 @@ export default function App() {
   };
 
   if (route === 'login') {
-    return <LoginPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+    return <LoginPage mode="login" onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+  }
+
+  if (route === 'signup') {
+    return <LoginPage mode="signup" onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
   }
 
   if (route === 'about') {
