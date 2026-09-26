@@ -1,29 +1,34 @@
 {
   "entities": {
     "User": {
-      "title": "User",
-      "description": "Registered user profile",
+      "title": "User Profile",
+      "description": "User profile information",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
         "email": { "type": "string" },
         "name": { "type": "string" },
-        "displayName": { "type": "string" },
         "username": { "type": "string" },
         "bio": { "type": "string" },
         "avatarUrl": { "type": "string" },
-        "photoURL": { "type": "string" },
-        "sharePattern": { "type": "string" },
-        "invitesSent": { "type": "number" },
-        "invitesAccepted": { "type": "number" },
-        "referralCode": { "type": "string" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["email", "username"]
+      "required": ["id", "email", "username", "createdAt", "updatedAt"]
     },
-    "LinkItem": {
-      "title": "LinkItem",
-      "description": "User's individual link card item",
+    "Username": {
+      "title": "Username Claim",
+      "description": "Mapping from username to user id",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "Link": {
+      "title": "Link Item",
+      "description": "A bio link on user's page",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -31,66 +36,86 @@
         "title": { "type": "string" },
         "url": { "type": "string" },
         "icon": { "type": "string" },
-        "visible": { "type": "boolean" },
         "position": { "type": "number" },
+        "visible": { "type": "boolean" },
         "clicks": { "type": "number" },
+        "openInNew": { "type": "boolean" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["title", "url"]
+      "required": ["id", "userId", "title", "url", "position", "visible", "clicks", "createdAt", "updatedAt"]
     },
-    "ThemeConfig": {
-      "title": "ThemeConfig",
-      "description": "User profile theme configuration",
+    "Theme": {
+      "title": "Theme Config",
+      "description": "Appearance settings for user profile page",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
         "userId": { "type": "string" },
         "presetId": { "type": "string" },
-        "backgroundType": { "type": "string" },
-        "fontFamily": { "type": "string" }
-      }
+        "category": { "type": "string" },
+        "customizable": { "type": "boolean" },
+        "bgType": { "type": "string" },
+        "bgColor": { "type": "string" },
+        "textColor": { "type": "string" },
+        "headingColor": { "type": "string" },
+        "buttonColor": { "type": "string" },
+        "buttonTextColor": { "type": "string" },
+        "buttonStyle": { "type": "string" },
+        "buttonShape": { "type": "string" },
+        "fontFamily": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "updatedAt"]
     },
-    "SocialLinks": {
-      "title": "SocialLinks",
-      "description": "User's social media handles",
+    "Socials": {
+      "title": "Social Links",
+      "description": "User social media handles and site links",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" }
-      }
+      },
+      "required": ["id", "userId"]
     },
-    "AnalyticsEvent": {
-      "title": "AnalyticsEvent",
-      "description": "Page view or link click event",
+    "Analytics": {
+      "title": "Analytics Event",
+      "description": "Tracking page view or link click",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "event": { "type": "string" }
-      }
+        "event": { "type": "string" },
+        "device": { "type": "string" },
+        "referrer": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "event", "createdAt"]
     }
   },
   "firestore": {
+    "/usernames/{username}": {
+      "schema": "Username",
+      "description": "Global unique username registry"
+    },
     "/users/{userId}": {
-      "schema": { "$ref": "#/entities/User" },
+      "schema": "User",
       "description": "User profile document"
     },
     "/users/{userId}/links/{linkId}": {
-      "schema": { "$ref": "#/entities/LinkItem" },
-      "description": "Subcollection of user links"
+      "schema": "Link",
+      "description": "Links subcollection for a user"
     },
-    "/users/{userId}/theme/{themeId}": {
-      "schema": { "$ref": "#/entities/ThemeConfig" },
-      "description": "Subcollection of user theme configs"
+    "/users/{userId}/theme/default": {
+      "schema": "Theme",
+      "description": "Theme subcollection document for a user"
     },
-    "/users/{userId}/socials/{socialsId}": {
-      "schema": { "$ref": "#/entities/SocialLinks" },
-      "description": "Subcollection of user social links"
+    "/users/{userId}/socials/default": {
+      "schema": "Socials",
+      "description": "Social links subcollection document for a user"
     },
     "/users/{userId}/analytics/{eventId}": {
-      "schema": { "$ref": "#/entities/AnalyticsEvent" },
-      "description": "Subcollection of user analytics events"
+      "schema": "Analytics",
+      "description": "Analytics subcollection for a user"
     }
   }
 }

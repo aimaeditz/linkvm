@@ -1,44 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId);
-      allow update, delete: if isOwner(userId);
-
-      match /links/{linkId} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      match /{subcollection=**} {
         allow read: if true;
-        allow create, update, delete: if isOwner(userId);
+        allow write: if request.auth != null && request.auth.uid == userId;
       }
-
-      match /theme/{themeId} {
-        allow read: if true;
-        allow create, update, delete: if isOwner(userId);
-      }
-
-      match /socials/{socialsId} {
-        allow read: if true;
-        allow create, update, delete: if isOwner(userId);
-      }
-
-      match /analytics/{eventId} {
-        allow read: if isOwner(userId);
-        allow create: if true;
-        allow update, delete: if isOwner(userId);
-      }
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }

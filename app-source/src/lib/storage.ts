@@ -34,6 +34,7 @@ import {
   query,
   where,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 
 export interface StoredUserAccount extends User {}
@@ -81,6 +82,28 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   }
 });
 
+export async function checkUsernameAvailableInFirestore(rawUsername: string): Promise<boolean> {
+  const clean = slugify(rawUsername);
+  if (!clean || clean.length < 3 || clean.length > 30) return false;
+  const val = validateUsername(clean);
+  if (!val.valid) return false;
+
+  try {
+    const unameDocRef = doc(db, 'usernames', clean);
+    const snap = await getDoc(unameDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (auth.currentUser && data.uid === auth.currentUser.uid) {
+        return true;
+      }
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<User> {
   const uid = firebaseUser.uid;
   const userRef = doc(db, 'users', uid);
@@ -112,6 +135,7 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       googleSub: firebaseUser.uid,
       updatedAt: now,
     };
+
     try {
       await updateDoc(userRef, {
         email: userData.email,
@@ -129,13 +153,17 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
     }
   } else {
-    const rawUsername = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'creator';
-    let username = slugify(rawUsername);
-    if (!username || username.length < 3) username = `user_${generateId().slice(0, 5)}`;
+    // New user registration
+    const rawLocal = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'creator';
+    let candidateUsername = slugify(rawLocal);
+    if (!candidateUsername || candidateUsername.length < 3) candidateUsername = `user_${uid.slice(0, 5)}`;
 
-    const avail = await checkUsernameAvailableInFirestore(username);
-    if (!avail) {
-      username = `${username}${Math.floor(1000 + Math.random() * 9000)}`;
+    let available = await checkUsernameAvailableInFirestore(candidateUsername);
+    let counter = 1000;
+    while (!available) {
+      candidateUsername = `${slugify(rawLocal).slice(0, 20)}${counter}`;
+      available = await checkUsernameAvailableInFirestore(candidateUsername);
+      counter++;
     }
 
     userData = {
@@ -145,12 +173,12 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       displayName: firebaseUser.displayName || '',
       photoURL: firebaseUser.photoURL || '',
       avatarUrl: firebaseUser.photoURL || '',
-      username,
-      bio: 'All my links in one place. Welcome to my page!',
+      username: candidateUsername,
+      bio: 'Welcome to my official LinkVM page!',
       sharePattern: '{username}',
       invitesSent: 0,
       invitesAccepted: 0,
-      referralCode: `${username}-${uid.slice(0, 4)}`,
+      referralCode: `${candidateUsername}-${uid.slice(0, 4)}`,
       googleSub: firebaseUser.uid,
       googleEmail: firebaseUser.email || '',
       googleName: firebaseUser.displayName || '',
@@ -168,27 +196,23 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       updatedAt: now,
     };
 
-    try {
-      await setDoc(userRef, userData);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `users/${uid}`);
-    }
+    const batch = writeBatch(db);
+    batch.set(userRef, userData);
+    batch.set(doc(db, 'usernames', candidateUsername), {
+      uid,
+      createdAt: now,
+    });
 
-    // Default theme & socials
     const defaultTheme = presetToConfig(THEME_PRESETS[0], uid);
-    const themeRef = doc(db, 'users', uid, 'theme', 'default');
-    try {
-      await setDoc(themeRef, defaultTheme);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/theme/default`);
-    }
+    batch.set(doc(db, 'users', uid, 'theme', 'default'), defaultTheme);
 
     const defaultSocials: SocialLinks = { id: 'default', userId: uid };
-    const socialsRef = doc(db, 'users', uid, 'socials', 'default');
+    batch.set(doc(db, 'users', uid, 'socials', 'default'), defaultSocials);
+
     try {
-      await setDoc(socialsRef, defaultSocials);
+      await batch.commit();
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/socials/default`);
+      handleFirestoreError(err, OperationType.CREATE, `users/${uid}`);
     }
   }
 
@@ -246,21 +270,6 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
   return userData;
 }
 
-async function checkUsernameAvailableInFirestore(username: string): Promise<boolean> {
-  const clean = slugify(username);
-  if (!clean || clean.length < 3 || clean.length > 30) return false;
-  const val = validateUsername(clean);
-  if (!val.valid) return false;
-
-  try {
-    const q = query(collection(db, 'users'), where('username', '==', clean));
-    const snap = await getDocs(q);
-    return snap.empty;
-  } catch {
-    return false;
-  }
-}
-
 export class AuthService {
   static getSessionUserId(): string | null {
     return auth.currentUser ? auth.currentUser.uid : cachedCurrentUser?.id || null;
@@ -270,10 +279,23 @@ export class AuthService {
     return Boolean(auth.currentUser || cachedCurrentUser);
   }
 
+  static async loginWithGoogle(): Promise<{ user?: User; error?: string }> {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = await syncUserFromFirebase(result.user);
+      return { user };
+    } catch (err) {
+      console.error('Google Sign-In popup error:', err);
+      return { error: err instanceof Error ? err.message : 'Google sign-in failed.' };
+    }
+  }
+
   static async loginWithGoogleFirebase(): Promise<User> {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = await syncUserFromFirebase(result.user);
-    return user;
+    const res = await AuthService.loginWithGoogle();
+    if (res.error || !res.user) {
+      throw new Error(res.error || 'Google sign-in failed');
+    }
+    return res.user;
   }
 
   static async logout(): Promise<void> {
@@ -315,22 +337,51 @@ export class AuthService {
     if (!current) return { error: 'Unauthorized' };
 
     const uid = current.uid;
-    if (partial.username) {
+    const now = new Date().toISOString();
+
+    if (partial.username && cachedCurrentUser && partial.username !== cachedCurrentUser.username) {
       const cleanUsername = slugify(partial.username);
       const val = validateUsername(cleanUsername);
       if (!val.valid) {
         return { error: val.error || 'Invalid username.' };
       }
-      if (cleanUsername !== cachedCurrentUser?.username) {
-        const isAvail = await checkUsernameAvailableInFirestore(cleanUsername);
-        if (!isAvail) {
-          return { error: 'This username is already taken.' };
-        }
+
+      const isAvail = await checkUsernameAvailableInFirestore(cleanUsername);
+      if (!isAvail) {
+        return { error: 'This username is already taken or reserved.' };
       }
-      partial.username = cleanUsername;
+
+      try {
+        await runTransaction(db, async (transaction) => {
+          const oldUnameRef = doc(db, 'usernames', cachedCurrentUser!.username);
+          const newUnameRef = doc(db, 'usernames', cleanUsername);
+          const userRef = doc(db, 'users', uid);
+
+          transaction.delete(oldUnameRef);
+          transaction.set(newUnameRef, { uid, createdAt: now });
+          transaction.update(userRef, {
+            ...partial,
+            username: cleanUsername,
+            updatedAt: now,
+          });
+        });
+
+        if (cachedCurrentUser) {
+          cachedCurrentUser = {
+            ...cachedCurrentUser,
+            ...partial,
+            username: cleanUsername,
+            updatedAt: now,
+          };
+        }
+        notifyListeners();
+        return { user: cachedCurrentUser! };
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+        return { error: 'Failed to update username.' };
+      }
     }
 
-    const now = new Date().toISOString();
     const updatedUser: User = {
       ...(cachedCurrentUser || {
         id: uid,
@@ -351,7 +402,7 @@ export class AuthService {
       return { user: updatedUser };
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
-      return { error: 'Failed to update profile in database' };
+      return { error: 'Failed to update profile in database.' };
     }
   }
 
@@ -362,6 +413,11 @@ export class AuthService {
 
     try {
       const batch = writeBatch(db);
+
+      // Delete username doc
+      if (cachedCurrentUser?.username) {
+        batch.delete(doc(db, 'usernames', cachedCurrentUser.username));
+      }
 
       // Links
       const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
@@ -524,7 +580,7 @@ export class StorageService {
       return { link: newLink };
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
-      return { error: 'Failed to add link to database' };
+      return { error: 'Failed to add link to database.' };
     }
   }
 

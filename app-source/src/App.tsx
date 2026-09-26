@@ -16,7 +16,6 @@ import { Footer } from './components/landing/Footer';
 
 // Auth Components
 import { LoginPage } from './components/auth/LoginPage';
-import { SignupPage } from './components/auth/SignupPage';
 
 // Dashboard Components
 import { Sidebar } from './components/dashboard/Sidebar';
@@ -57,13 +56,12 @@ export default function App() {
   const [, setSaveError] = useState<string | null>(null);
   const onRetryRef = useRef<(() => void) | null>(null);
 
-  // Viewed profile state for proper /:username dynamic resolution
+  // Viewed profile state for dynamic /:username resolution
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [profileLinks, setProfileLinks] = useState<LinkItem[]>([]);
   const [profileTheme, setProfileTheme] = useState<ThemeConfig | null>(null);
   const [profileSocials, setProfileSocials] = useState<SocialLinks | null>(null);
 
-  // Update document title, meta tags, canonical URL, and indexing directives on route/profile change
   useSeoHead(route, profileUser);
 
   const refreshAllState = () => {
@@ -78,6 +76,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeToStore(() => {
       refreshAllState();
+      resolveRouteAndLoad();
     });
     return () => unsubscribe();
   }, []);
@@ -114,7 +113,6 @@ export default function App() {
   const resolveRouteAndLoad = async (pathname = window.location.pathname) => {
     const cleanPath = getCleanRoutePath(pathname);
 
-    // Check subdomain user first
     const hostname = window.location.hostname;
     const hostParts = hostname.split('.');
     let targetUsername = '';
@@ -147,7 +145,6 @@ export default function App() {
       return;
     }
 
-    // Static pages and reserved paths
     const RESERVED_PATHS = new Set([
       'login',
       'signup',
@@ -164,7 +161,6 @@ export default function App() {
 
     const segments = cleanPath.split('/').filter(Boolean);
 
-    // If path is empty (root route)
     if (segments.length === 0) {
       setRoute('landing');
       return;
@@ -172,19 +168,19 @@ export default function App() {
 
     const firstSegment = segments[0];
 
-    // Short referral URL
+    // Referral URL -> redirect to /login
     if (firstSegment === 'r' && segments.length >= 2) {
       const code = segments[1];
       if (code) {
         localStorage.setItem('linkvm_ref_code', code);
         document.cookie = `linkvm_ref_code=${code}; path=/; max-age=86400`;
-        window.history.replaceState(null, '', getAppPath(`/signup?ref=${code}`));
-        setRoute('signup');
+        window.history.replaceState(null, '', getAppPath('/login'));
+        setRoute('login');
         return;
       }
     }
 
-    // Dashboard nested path
+    // Dashboard route guard - enforce signed-in user
     if (firstSegment === 'dashboard') {
       if (!StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/login'));
@@ -204,25 +200,17 @@ export default function App() {
       return;
     }
 
-    // Static routes
-    if (firstSegment === 'login') {
+    // Auth routes (/login & /signup) -> redirect to /dashboard if logged in
+    if (firstSegment === 'login' || firstSegment === 'signup') {
       if (StorageService.isSessionActive()) {
         window.history.replaceState(null, '', getAppPath('/dashboard'));
         setRoute('dashboard');
         setDashboardTab('overview');
       } else {
+        if (firstSegment === 'signup') {
+          window.history.replaceState(null, '', getAppPath('/login'));
+        }
         setRoute('login');
-      }
-      return;
-    }
-
-    if (firstSegment === 'signup') {
-      if (StorageService.isSessionActive()) {
-        window.history.replaceState(null, '', getAppPath('/dashboard'));
-        setRoute('dashboard');
-        setDashboardTab('overview');
-      } else {
-        setRoute('signup');
       }
       return;
     }
@@ -318,8 +306,7 @@ export default function App() {
   const handleNavigate = (targetRoute: string) => {
     let newPath = '/';
     if (targetRoute === 'landing') newPath = '/';
-    else if (targetRoute === 'login') newPath = '/login';
-    else if (targetRoute === 'signup') newPath = '/signup';
+    else if (targetRoute === 'login' || targetRoute === 'signup') newPath = '/login';
     else if (targetRoute === 'about') newPath = '/about';
     else if (targetRoute === 'privacy') newPath = '/privacy';
     else if (targetRoute === 'terms') newPath = '/terms';
@@ -355,27 +342,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const activeUser: User = currentUser || {
-    id: 'guest',
-    name: 'LinkVM User',
-    username: 'user',
-    email: 'user@linkvm.online',
-    bio: 'Consolidate all your links into one place.',
-    avatarUrl: '',
-    headerLayout: 'classic',
-    titleStyle: 'text',
-    titleFont: 'Inter',
-    altTitleFont: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
   if (route === 'login') {
     return <LoginPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
-  }
-
-  if (route === 'signup') {
-    return <SignupPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
   }
 
   if (route === 'about') {
@@ -448,8 +416,8 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                window.history.pushState(null, '', getAppPath('/signup'));
-                resolveRouteAndLoad('/signup');
+                window.history.pushState(null, '', getAppPath('/login'));
+                resolveRouteAndLoad('/login');
               }}
               className="w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
             >
@@ -465,16 +433,22 @@ export default function App() {
   }
 
   if (route === 'dashboard') {
+    if (!currentUser) {
+      window.history.replaceState(null, '', getAppPath('/login'));
+      setRoute('login');
+      return null;
+    }
+
     return (
       <div className="flex h-screen w-full bg-slate-50/70 overflow-hidden font-sans">
         <div className="hidden lg:flex shrink-0">
           <Sidebar
             currentTab={dashboardTab}
             onSelectTab={(tab) => handleNavigate(`dashboard_${tab}`)}
-            user={activeUser}
+            user={currentUser}
             linksCount={links.length}
             onLogout={handleLogout}
-            onViewPublic={() => handleNavigate(activeUser.username)}
+            onViewPublic={() => handleNavigate(currentUser.username)}
           />
         </div>
 
@@ -486,20 +460,20 @@ export default function App() {
             setMobileNavOpen(false);
             handleNavigate(`dashboard_${tab}`);
           }}
-          user={activeUser}
+          user={currentUser}
           onLogout={handleLogout}
           onViewPublic={() => {
             setMobileNavOpen(false);
-            handleNavigate(activeUser.username);
+            handleNavigate(currentUser.username);
           }}
         />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
           <Topbar
             title={dashboardTab.replace('-', ' ')}
-            user={activeUser}
+            user={currentUser}
             onOpenMobileNav={() => setMobileNavOpen(true)}
-            onViewPublic={() => handleNavigate(activeUser.username)}
+            onViewPublic={() => handleNavigate(currentUser.username)}
             onNavigateSettings={() => handleNavigate('dashboard_settings')}
             onNavigateTab={(tab) => handleNavigate(`dashboard_${tab}`)}
             onLogout={handleLogout}
@@ -514,18 +488,18 @@ export default function App() {
           <main className="flex-1 overflow-y-auto px-6 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10 2xl:px-12 2xl:py-12 w-full min-w-0 max-w-none">
             {dashboardTab === 'overview' && (
               <OverviewPage
-                user={activeUser}
+                user={currentUser}
                 links={links}
                 analytics={analytics}
                 onNavigateTab={(tab) => handleNavigate(`dashboard_${tab}`)}
-                onViewPublic={() => handleNavigate(activeUser.username)}
-                onOpenShareModal={() => handleNavigate(activeUser.username)}
+                onViewPublic={() => handleNavigate(currentUser.username)}
+                onOpenShareModal={() => handleNavigate(currentUser.username)}
               />
             )}
 
             {dashboardTab === 'links' && (
               <LinksPage
-                user={activeUser}
+                user={currentUser}
                 links={links}
                 onLinksChange={refreshAllState}
               />
@@ -533,7 +507,7 @@ export default function App() {
 
             {dashboardTab === 'appearance' && (
               <AppearancePage
-                user={activeUser}
+                user={currentUser}
                 links={links}
                 theme={theme}
                 onThemeChange={refreshAllState}
@@ -544,17 +518,17 @@ export default function App() {
               <AnalyticsPage
                 events={analytics}
                 links={links}
-                onViewPublic={() => handleNavigate(activeUser.username)}
+                onViewPublic={() => handleNavigate(currentUser.username)}
               />
             )}
 
             {dashboardTab === 'qr-code' && (
-              <QRCodePage user={activeUser} theme={theme} />
+              <QRCodePage user={currentUser} theme={theme} />
             )}
 
             {dashboardTab === 'settings' && (
               <SettingsPage
-                user={activeUser}
+                user={currentUser}
                 socials={socials}
                 onUserUpdate={refreshAllState}
                 onLogout={handleLogout}
@@ -584,16 +558,16 @@ export default function App() {
 
       <main className="flex-1 w-full">
         <Hero
-          onStartFree={() => handleNavigate('signup')}
+          onStartFree={() => handleNavigate('login')}
           onSeeHowItWorks={() => handleNavigate('#how-it-works')}
         />
         <TrustBar />
         <Features />
         <HowItWorks />
-        <WhyFree onStartFree={() => handleNavigate('signup')} />
+        <WhyFree onStartFree={() => handleNavigate('login')} />
         <Testimonials />
         <FAQ />
-        <FinalCTA onStartFree={() => handleNavigate('signup')} />
+        <FinalCTA onStartFree={() => handleNavigate('login')} />
       </main>
 
       <Footer onNavigate={handleNavigate} />

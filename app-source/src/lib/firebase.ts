@@ -1,15 +1,45 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  browserLocalPersistence,
+  setPersistence,
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+if (!apiKey || !authDomain || !projectId) {
+  const errMsg =
+    '[LinkVM Error] Missing required Firebase configuration in environment variables. VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, and VITE_FIREBASE_PROJECT_ID are required.';
+  console.error(errMsg);
+  throw new Error(errMsg);
+}
 
+const firebaseConfig = {
+  apiKey,
+  authDomain,
+  projectId,
+  storageBucket,
+  messagingSenderId,
+  appId,
+  measurementId,
+};
+
+export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+// Set browser local persistence so authentication state survives page reloads
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error('Failed to set auth persistence:', err);
+});
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
@@ -42,7 +72,11 @@ export interface FirestoreErrorInfo {
   };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -51,10 +85,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map((provider) => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || [],
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
     },
     operationType,
     path,
@@ -67,7 +102,10 @@ export async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('the client is offline')
+    ) {
       console.error('Please check your Firebase configuration.');
     }
   }
