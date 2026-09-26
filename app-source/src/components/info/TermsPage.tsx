@@ -123,7 +123,7 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onNavigate }) => {
                 For questions regarding these terms, please contact:
               </p>
               <p className="font-semibold text-indigo-600">
-                support@linkvm.online
+                aimaeditz.info@gmail.com
               </p>
             </section>
           </div>

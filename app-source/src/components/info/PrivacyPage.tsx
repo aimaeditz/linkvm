@@ -130,7 +130,7 @@ export const PrivacyPage: React.FC<PrivacyPageProps> = ({ onNavigate }) => {
                 For questions regarding this privacy policy or to submit a data erasure request, please contact our team directly at:
               </p>
               <p className="font-semibold text-indigo-600">
-                support@linkvm.online
+                aimaeditz.info@gmail.com
               </p>
             </section>
           </div>

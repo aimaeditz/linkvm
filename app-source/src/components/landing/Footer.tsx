@@ -150,7 +150,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </a>
 
               <a
-                href="mailto:support@linkvm.online"
+                href="mailto:aimaeditz.info@gmail.com"
                 aria-label="Email"
                 className="text-slate-600 hover:text-slate-900 transition-colors"
               >

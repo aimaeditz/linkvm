@@ -10,7 +10,7 @@ export const BRAND = {
   get appUrl() {
     return getSiteUrl();
   },
-  supportEmail: 'support@linkvm.online',
+  supportEmail: 'aimaeditz.info@gmail.com',
   credit: 'Created by AiMAEditz',
   badge: '100% Free Forever',
   planLabel: 'Free Forever Plan',

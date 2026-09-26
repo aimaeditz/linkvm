@@ -96,7 +96,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
       } else {
         setStatusMessage({
           type: 'error',
-          text: 'Something went wrong. Please try again or email support@linkvm.online directly.',
+          text: 'Something went wrong. Please try again or email aimaeditz.info@gmail.com directly.',
         });
         setToast({
           type: 'error',
@@ -106,7 +106,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
     } catch {
       setStatusMessage({
         type: 'error',
-        text: 'Something went wrong. Please try again or email support@linkvm.online directly.',
+        text: 'Something went wrong. Please try again or email aimaeditz.info@gmail.com directly.',
       });
       setToast({
         type: 'error',
@@ -124,7 +124,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
     },
     {
       q: 'Where can I submit a feature recommendation?',
-      a: 'You can submit suggestions directly through this contact form or email us at support@linkvm.online with the subject line Feature Request.',
+      a: 'You can submit suggestions directly through this contact form or email us at aimaeditz.info@gmail.com with the subject line Feature Request.',
     },
     {
       q: 'Do you charge for support tickets?',
@@ -282,10 +282,10 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
                   Prefer direct email? Send a message to our support desk:
                 </p>
                 <a
-                  href="mailto:support@linkvm.online"
+                  href="mailto:aimaeditz.info@gmail.com"
                   className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 break-all"
                 >
-                  support@linkvm.online
+                  aimaeditz.info@gmail.com
                 </a>
               </div>
 
