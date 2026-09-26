@@ -10,9 +10,7 @@ import { slugify } from './utils';
 import { THEME_PRESETS, presetToConfig } from './themes';
 import { validateUsername } from './reserved-usernames';
 
-export interface StoredUserAccount extends User {
-  passwordHash: string;
-}
+export interface StoredUserAccount extends User {}
 
 const STORAGE_KEYS = {
   SESSION_USER_ID: 'linkvm_session_user_id',
@@ -22,28 +20,11 @@ const STORAGE_KEYS = {
   USER_THEME_PREFIX: 'linkvm_theme_user_',
   USER_SOCIALS_PREFIX: 'linkvm_socials_user_',
   USER_ANALYTICS_PREFIX: 'linkvm_analytics_user_',
-  RESET_TOKENS: 'linkvm_reset_tokens',
 };
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
 }
-
-const bcrypt = {
-  hashSync: (pwd: string, _saltRounds = 12): string => {
-    let hash = 0;
-    for (let i = 0; i < pwd.length; i++) {
-      hash = (hash << 5) - hash + pwd.charCodeAt(i);
-      hash |= 0;
-    }
-    return `b64_${btoa(unescape(encodeURIComponent(pwd)))}_${Math.abs(hash).toString(36)}`;
-  },
-  compareSync: (pwd: string, hash: string): boolean => {
-    if (!hash || !pwd) return false;
-    if (hash === pwd) return true;
-    return bcrypt.hashSync(pwd) === hash;
-  },
-};
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -68,6 +49,11 @@ function saveAllStoredUsers(users: StoredUserAccount[]): void {
 function findStoredUserByEmail(email: string): StoredUserAccount | null {
   const users = getAllStoredUsers();
   return users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) || null;
+}
+
+function findStoredUserByGoogleSub(sub: string): StoredUserAccount | null {
+  const users = getAllStoredUsers();
+  return users.find((u) => u.googleSub === sub) || null;
 }
 
 function findStoredUserByUsername(username: string): StoredUserAccount | null {
@@ -120,10 +106,7 @@ export class AuthService {
   static getCurrentUserSync(): User | null {
     const userId = this.getSessionUserId();
     if (!userId) return null;
-    const account = findStoredUserById(userId);
-    if (!account) return null;
-    const { passwordHash: _, ...publicUser } = account;
-    return publicUser;
+    return findStoredUserById(userId);
   }
 
   static async getCurrentUser(): Promise<User | null> {
@@ -157,70 +140,57 @@ export class AuthService {
     return `${base}${Date.now().toString().slice(-4)}`;
   }
 
-  static async signup(data: {
-    name: string;
+  static loginWithGoogle(profile: {
+    sub: string;
     email: string;
-    password: string;
-    confirmPassword?: string;
-    terms?: boolean;
-    username?: string;
-  }): Promise<{ user?: User; error?: string }> {
-    const name = (data.name || '').trim();
-    if (!name) {
-      return { error: 'Please provide your full name.' };
-    }
+    name?: string;
+    picture?: string;
+  }): { user: User; isNew: boolean } {
+    const cleanEmail = profile.email.trim().toLowerCase();
+    const existingBySub = profile.sub ? findStoredUserByGoogleSub(profile.sub) : null;
+    const existingByEmail = findStoredUserByEmail(cleanEmail);
+    const existing = existingBySub || existingByEmail;
 
-    const email = (data.email || '').trim().toLowerCase();
-    if (!email || !email.includes('@')) {
-      return { error: 'Please provide a valid email address.' };
-    }
+    const users = getAllStoredUsers();
 
-    if (data.confirmPassword !== undefined && data.password !== data.confirmPassword) {
-      return { error: 'Passwords do not match.' };
-    }
-
-    if (data.terms !== undefined && !data.terms) {
-      return { error: 'You must accept the Terms of Service to continue.' };
-    }
-
-    if (!data.password || data.password.length < 8) {
-      return { error: 'Password must contain at least 8 characters.' };
-    }
-
-    const existing = findStoredUserByEmail(email);
     if (existing) {
-      return { error: 'An account with this email already exists.' };
-    }
+      const updatedUser: StoredUserAccount = {
+        ...existing,
+        googleSub: profile.sub || existing.googleSub,
+        googleEmail: cleanEmail,
+        googleName: profile.name || existing.googleName || existing.name || '',
+        googlePicture: profile.picture || existing.googlePicture || existing.avatarUrl || '',
+        avatarUrl: existing.avatarUrl || profile.picture || '',
+        name: existing.name || profile.name || cleanEmail.split('@')[0],
+        updatedAt: new Date().toISOString(),
+      };
 
-    let username = data.username ? slugify(data.username) : '';
-    if (username) {
-      const val = validateUsername(username);
-      if (!val.valid) {
-        return { error: val.error || 'Invalid username.' };
-      }
-      if (findStoredUserByUsername(username)) {
-        return { error: 'This username is already taken or reserved.' };
-      }
-    } else {
-      username = this.generateUniqueUsername(email);
+      const updatedList = users.map((u) => (u.id === existing.id ? updatedUser : u));
+      saveAllStoredUsers(updatedList);
+      this.setSession(existing.id, true);
+      return { user: updatedUser, isNew: false };
     }
 
     const userId = generateId();
-    const passwordHash = bcrypt.hashSync(data.password, 12);
+    const username = this.generateUniqueUsername(cleanEmail);
     const now = new Date().toISOString();
 
     const newUser: StoredUserAccount = {
       id: userId,
-      email,
-      name,
+      email: cleanEmail,
+      name: profile.name || cleanEmail.split('@')[0] || 'Creator',
       username,
       bio: 'All my links in one place. Welcome to my page!',
-      avatarUrl: '',
+      avatarUrl: profile.picture || '',
       accentColor: null,
       sharePattern: '{username}',
       invitesSent: 0,
       invitesAccepted: 0,
       referralCode: `${username}-${userId.slice(0, 4)}`,
+      googleSub: profile.sub,
+      googleEmail: cleanEmail,
+      googleName: profile.name || '',
+      googlePicture: profile.picture || '',
       notifications: {
         weeklySummary: true,
         securityAlerts: true,
@@ -230,12 +200,9 @@ export class AuthService {
         anonymousAnalytics: false,
       },
       hasSharedAt: null,
-      passwordHash,
       createdAt: now,
       updatedAt: now,
     };
-
-    const users = getAllStoredUsers();
 
     if (isBrowser()) {
       const refCode = localStorage.getItem('linkvm_ref_code');
@@ -263,104 +230,15 @@ export class AuthService {
     if (isBrowser()) {
       localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
       localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-      localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify({ id: generateId(), userId }));
+      localStorage.setItem(
+        `${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`,
+        JSON.stringify({ id: generateId(), userId })
+      );
       localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
     }
 
     this.setSession(userId, true);
-    const { passwordHash: _, ...publicUser } = newUser;
-    return { user: publicUser };
-  }
-
-  static async login(email: string, password: string, rememberMe = true): Promise<{ user?: User; error?: string }> {
-    const userAccount = findStoredUserByEmail(email);
-    if (!userAccount) {
-      return { error: 'Invalid email or password.' };
-    }
-
-    if (!userAccount.passwordHash) {
-      return { error: 'Please sign in with your connected OAuth account.' };
-    }
-
-    const passwordMatches = bcrypt.compareSync(password, userAccount.passwordHash);
-    if (!passwordMatches) {
-      return { error: 'Invalid email or password.' };
-    }
-
-    this.setSession(userAccount.id, rememberMe);
-    const { passwordHash: _, ...publicUser } = userAccount;
-    return { user: publicUser };
-  }
-
-  static loginWithOAuth(provider: 'google' | 'github', email: string, name: string, preferredUsername?: string): User {
-    let existing = findStoredUserByEmail(email);
-    if (!existing) {
-      let username = preferredUsername ? slugify(preferredUsername) : '';
-      if (!username || findStoredUserByUsername(username) || !validateUsername(username).valid) {
-        username = this.generateUniqueUsername(email);
-      }
-      const userId = generateId();
-      const now = new Date().toISOString();
-      const newUser: StoredUserAccount = {
-        id: userId,
-        email: email.toLowerCase(),
-        name,
-        username,
-        bio: 'All my links in one place. Welcome to my page!',
-        avatarUrl: '',
-        sharePattern: '{username}',
-        invitesSent: 0,
-        invitesAccepted: 0,
-        referralCode: `${username}-${userId.slice(0, 4)}`,
-        notifications: {
-          weeklySummary: true,
-          securityAlerts: true,
-        },
-        privacy: {
-          searchIndexing: true,
-          anonymousAnalytics: false,
-        },
-        hasSharedAt: null,
-        passwordHash: '',
-        createdAt: now,
-        updatedAt: now,
-      };
-      const users = getAllStoredUsers();
-
-      if (isBrowser()) {
-        const refCode = localStorage.getItem('linkvm_ref_code');
-        if (refCode) {
-          const cleanRef = refCode.trim().toLowerCase();
-          const referrerIndex = users.findIndex(
-            (u) =>
-              u.username.toLowerCase() === cleanRef ||
-              u.referralCode?.toLowerCase() === cleanRef ||
-              u.username.toLowerCase() === cleanRef.split('-')[0]
-          );
-          if (referrerIndex !== -1) {
-            users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
-            users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
-          }
-          localStorage.removeItem('linkvm_ref_code');
-        }
-      }
-
-      users.push(newUser);
-      saveAllStoredUsers(users);
-
-      if (isBrowser()) {
-        const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
-        localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
-        localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-        localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify({ id: generateId(), userId }));
-        localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
-      }
-      existing = newUser;
-    }
-
-    this.setSession(existing.id, true);
-    const { passwordHash: _, ...publicUser } = existing;
-    return publicUser;
+    return { user: newUser, isNew: true };
   }
 
   static async updateProfile(partial: Partial<User>): Promise<{ user?: User; error?: string }> {
@@ -389,8 +267,7 @@ export class AuthService {
           ...partial,
           updatedAt: new Date().toISOString(),
         };
-        const { passwordHash: _, ...pub } = merged;
-        updatedUser = pub;
+        updatedUser = merged;
         return merged;
       }
       return u;
@@ -401,30 +278,6 @@ export class AuthService {
       return { user: updatedUser };
     }
     return { error: 'User not found' };
-  }
-
-  static async changePassword(current: string, next: string): Promise<{ success: boolean; error?: string }> {
-    const userId = this.getSessionUserId();
-    if (!userId) return { success: false, error: 'Unauthorized' };
-
-    const userAccount = findStoredUserById(userId);
-    if (!userAccount) return { success: false, error: 'User not found' };
-
-    if (userAccount.passwordHash) {
-      const match = bcrypt.compareSync(current, userAccount.passwordHash);
-      if (!match) return { success: false, error: 'Current password is incorrect.' };
-    }
-
-    if (!next || next.length < 8) {
-      return { success: false, error: 'New password must contain at least 8 characters.' };
-    }
-
-    userAccount.passwordHash = bcrypt.hashSync(next, 12);
-    userAccount.updatedAt = new Date().toISOString();
-
-    const users = getAllStoredUsers().map((u) => (u.id === userId ? userAccount : u));
-    saveAllStoredUsers(users);
-    return { success: true };
   }
 
   static async deleteAccount(): Promise<void> {
@@ -440,74 +293,6 @@ export class AuthService {
     saveAllStoredUsers(remainingUsers);
 
     this.logoutSync();
-  }
-
-  static async requestPasswordReset(email: string): Promise<{ success: boolean; token?: string; error?: string }> {
-    if (!email || !email.includes('@')) {
-      return { success: false, error: 'Please provide a valid email address.' };
-    }
-    const cleanEmail = email.trim().toLowerCase();
-    const account = findStoredUserByEmail(cleanEmail);
-    if (!account) {
-      return { success: true };
-    }
-    const token = 'rst_' + generateId() + Date.now().toString(36);
-    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
-    if (isBrowser()) {
-      const raw = localStorage.getItem(STORAGE_KEYS.RESET_TOKENS);
-      let tokens: { token: string; email: string; expiresAt: number }[] = [];
-      if (raw) {
-        try {
-          tokens = JSON.parse(raw);
-        } catch {
-          tokens = [];
-        }
-      }
-      tokens = tokens.filter((t) => t.expiresAt > Date.now() && t.email !== cleanEmail);
-      tokens.push({ token, email: cleanEmail, expiresAt });
-      localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
-    }
-    return { success: true, token };
-  }
-
-  static async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-    if (!token) return { success: false, error: 'Invalid or missing reset token.' };
-    if (!newPassword || newPassword.length < 8) {
-      return { success: false, error: 'Password must contain at least 8 characters.' };
-    }
-    if (!isBrowser()) return { success: false, error: 'Browser environment required.' };
-
-    const raw = localStorage.getItem(STORAGE_KEYS.RESET_TOKENS);
-    if (!raw) return { success: false, error: 'Reset token not found or expired.' };
-    let tokens: { token: string; email: string; expiresAt: number }[] = [];
-    try {
-      tokens = JSON.parse(raw);
-    } catch {
-      return { success: false, error: 'Invalid reset token format.' };
-    }
-
-    const entryIndex = tokens.findIndex((t) => t.token === token);
-    if (entryIndex === -1) return { success: false, error: 'Reset token is invalid.' };
-    const entry = tokens[entryIndex];
-    if (Date.now() > entry.expiresAt) {
-      tokens.splice(entryIndex, 1);
-      localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
-      return { success: false, error: 'Reset token has expired.' };
-    }
-
-    const account = findStoredUserByEmail(entry.email);
-    if (!account) return { success: false, error: 'User account not found.' };
-
-    account.passwordHash = bcrypt.hashSync(newPassword, 12);
-    account.updatedAt = new Date().toISOString();
-
-    const users = getAllStoredUsers().map((u) => (u.id === account.id ? account : u));
-    saveAllStoredUsers(users);
-
-    tokens.splice(entryIndex, 1);
-    localStorage.setItem(STORAGE_KEYS.RESET_TOKENS, JSON.stringify(tokens));
-
-    return { success: true };
   }
 }
 
@@ -571,114 +356,13 @@ export class StorageService {
     return AuthService.generateUniqueUsername(email);
   }
 
-  static register(params: { name: string; email: string; password: string; username?: string }): { user?: User; error?: string } {
-    const email = params.email.trim().toLowerCase();
-    const existing = findStoredUserByEmail(email);
-    if (existing) {
-      return { error: 'An account with this email already exists.' };
-    }
-
-    let username = params.username ? slugify(params.username) : '';
-    if (username) {
-      if (!this.checkUsernameAvailability(username)) {
-        return { error: 'This username is already taken or reserved.' };
-      }
-    } else {
-      username = this.generateUniqueUsername(email);
-    }
-    const userId = generateId();
-    const passwordHash = bcrypt.hashSync(params.password, 12);
-    const now = new Date().toISOString();
-
-    const newUser: StoredUserAccount = {
-      id: userId,
-      email,
-      name: params.name.trim(),
-      username,
-      bio: 'All my links in one place. Welcome to my page!',
-      avatarUrl: '',
-      accentColor: null,
-      sharePattern: '{username}',
-      invitesSent: 0,
-      invitesAccepted: 0,
-      referralCode: `${username}-${userId.slice(0, 4)}`,
-      notifications: {
-        weeklySummary: true,
-        securityAlerts: true,
-      },
-      privacy: {
-        searchIndexing: true,
-        anonymousAnalytics: false,
-      },
-      hasSharedAt: null,
-      passwordHash,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const users = getAllStoredUsers();
-
-    if (isBrowser()) {
-      const refCode = localStorage.getItem('linkvm_ref_code');
-      if (refCode) {
-        const cleanRef = refCode.trim().toLowerCase();
-        const referrerIndex = users.findIndex(
-          (u) =>
-            u.username.toLowerCase() === cleanRef ||
-            u.referralCode?.toLowerCase() === cleanRef ||
-            u.username.toLowerCase() === cleanRef.split('-')[0]
-        );
-        if (referrerIndex !== -1) {
-          users[referrerIndex].invitesSent = (users[referrerIndex].invitesSent || 0) + 1;
-          users[referrerIndex].invitesAccepted = (users[referrerIndex].invitesAccepted || 0) + 1;
-        }
-        localStorage.removeItem('linkvm_ref_code');
-      }
-    }
-
-    users.push(newUser);
-    saveAllStoredUsers(users);
-
-    const newTheme: ThemeConfig = presetToConfig(THEME_PRESETS[0], userId);
-
-    if (isBrowser()) {
-      localStorage.setItem(`${STORAGE_KEYS.USER_THEME_PREFIX}${userId}`, JSON.stringify(newTheme));
-      localStorage.setItem(`${STORAGE_KEYS.USER_LINKS_PREFIX}${userId}`, JSON.stringify([]));
-      localStorage.setItem(`${STORAGE_KEYS.USER_SOCIALS_PREFIX}${userId}`, JSON.stringify({ id: generateId(), userId }));
-      localStorage.setItem(`${STORAGE_KEYS.USER_ANALYTICS_PREFIX}${userId}`, JSON.stringify([]));
-    }
-
-    this.setSession(userId, true);
-    const { passwordHash: _, ...publicUser } = newUser;
-    return { user: publicUser };
-  }
-
-  static login(email: string, password: string, rememberMe = true): { user?: User; error?: string } {
-    const userAccount = findStoredUserByEmail(email);
-    if (!userAccount) {
-      return { error: 'Invalid email or password.' };
-    }
-
-    if (!userAccount.passwordHash) {
-      return { error: 'Please sign in with your connected OAuth account.' };
-    }
-
-    const passwordMatches = bcrypt.compareSync(password, userAccount.passwordHash);
-    if (!passwordMatches) {
-      return { error: 'Invalid email or password.' };
-    }
-
-    this.setSession(userAccount.id, rememberMe);
-    const { passwordHash: _, ...publicUser } = userAccount;
-    return { user: publicUser };
-  }
-
-  static loginSync(email: string, password: string, rememberMe = true): { user?: User; error?: string } {
-    return this.login(email, password, rememberMe);
-  }
-
-  static loginWithOAuth(provider: 'google' | 'github', email: string, name: string, preferredUsername?: string): User {
-    return AuthService.loginWithOAuth(provider, email, name, preferredUsername);
+  static loginWithGoogle(profile: {
+    sub: string;
+    email: string;
+    name?: string;
+    picture?: string;
+  }): { user: User; isNew: boolean } {
+    return AuthService.loginWithGoogle(profile);
   }
 
   static getCurrentUser(): User | null {
@@ -698,8 +382,7 @@ export class StorageService {
           ...partial,
           updatedAt: new Date().toISOString(),
         };
-        const { passwordHash: _, ...pub } = merged;
-        updatedUser = pub;
+        updatedUser = merged;
         return merged;
       }
       return u;
@@ -709,26 +392,6 @@ export class StorageService {
       saveAllStoredUsers(updatedList);
     }
     return updatedUser;
-  }
-
-  static changePassword(currentPassword: string, newPassword: string): { success: boolean; error?: string } {
-    const userId = this.getSessionUserId();
-    if (!userId) return { success: false, error: 'Unauthorized' };
-
-    const userAccount = findStoredUserById(userId);
-    if (!userAccount) return { success: false, error: 'User not found' };
-
-    if (userAccount.passwordHash) {
-      const match = bcrypt.compareSync(currentPassword, userAccount.passwordHash);
-      if (!match) return { success: false, error: 'Current password is incorrect.' };
-    }
-
-    userAccount.passwordHash = bcrypt.hashSync(newPassword, 12);
-    userAccount.updatedAt = new Date().toISOString();
-
-    const users = getAllStoredUsers().map((u) => (u.id === userId ? userAccount : u));
-    saveAllStoredUsers(users);
-    return { success: true };
   }
 
   // --- Async & Sync Links Operations ---
@@ -1173,7 +836,7 @@ export class StorageService {
       app: 'LinkVM',
       domain: 'linkvm.online',
       exportedAt: new Date().toISOString(),
-      user: user ? (({ passwordHash: _, ...rest }) => rest)(user) : null,
+      user,
       links: targetId ? this.getLinksSync(targetId) : [],
       theme: targetId ? this.getThemeSync(targetId) : null,
       socials: targetId ? this.getSocialsSync(targetId) : null,

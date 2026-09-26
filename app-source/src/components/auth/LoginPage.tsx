@@ -1,30 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Logo } from '../shared/Logo';
 import { AuthService } from '../../lib/storage';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, AlertTriangle } from 'lucide-react';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential?: string }) => void;
+            auto_select?: boolean;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              type?: 'standard' | 'icon';
+              theme?: 'outline' | 'filled_blue' | 'filled_black';
+              size?: 'large' | 'medium' | 'small';
+              text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
+              shape?: 'rectangular' | 'pill' | 'circle' | 'square';
+              logo_alignment?: 'left' | 'center';
+              width?: number | string;
+            }
+          ) => void;
+          prompt: (momentListener?: (moment: unknown) => void) => void;
+        };
+      };
+    };
+  }
+}
 
 export interface LoginPageProps {
   onSuccess?: () => void;
   onNavigate?: (route: string) => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isReturningUser, setIsReturningUser] = useState(false);
+function parseJwt(token: string): { sub: string; email: string; name?: string; picture?: string } | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (err) {
+    console.error('Failed to parse Google ID token:', err);
+    return null;
+  }
+}
 
-  useEffect(() => {
-    const lastSignIn = localStorage.getItem('linkvm_last_signin');
-    if (lastSignIn) {
-      setIsReturningUser(true);
-    }
-  }, []);
+export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) => {
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const googleBtnContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const googleClientId =
+    (import.meta as unknown as { env?: Record<string, string | undefined> })?.env?.VITE_GOOGLE_CLIENT_ID || '';
 
   const handleNavigate = (route: string) => {
     if (onNavigate) {
@@ -34,49 +74,107 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
     }
   };
 
-  const handleSuccess = () => {
-    localStorage.setItem('linkvm_last_signin', Date.now().toString());
-    if (onSuccess) {
-      onSuccess();
-    } else {
-      window.location.href = '/dashboard';
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!email || !email.includes('@')) {
-      setError('Please provide a valid email address.');
+  const handleCredentialResponse = (response: { credential?: string }) => {
+    if (!response.credential) {
+      setError('Google Sign-In failed to return credentials. Please try again.');
+      setLoading(false);
       return;
     }
-    if (!password || password.length < 6) {
-      setError('Password must contain at least 6 characters.');
+
+    const payload = parseJwt(response.credential);
+    if (!payload || !payload.email || !payload.sub) {
+      setError('Unable to parse Google account information.');
+      setLoading(false);
       return;
     }
 
     setLoading(true);
-    AuthService.login(email, password, rememberMe).then((res) => {
-      setLoading(false);
-      if (res.error) {
-        setError(res.error);
-        return;
+    try {
+      AuthService.loginWithGoogle({
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+      });
+
+      localStorage.setItem('linkvm_last_signin', Date.now().toString());
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.href = '/dashboard';
       }
-      handleSuccess();
-    });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleOAuth = (provider: 'google' | 'github') => {
-    setLoading(true);
-    setTimeout(() => {
-      const providerEmail = `${provider}-creator@linkvm.online`;
-      const providerName = `${provider.charAt(0).toUpperCase() + provider.slice(1)} Creator`;
-      const preferredUsername = `${provider}-creator`;
-      AuthService.loginWithOAuth(provider, providerEmail, providerName, preferredUsername);
-      setLoading(false);
-      handleSuccess();
-    }, 400);
+  useEffect(() => {
+    if (!googleClientId) {
+      return;
+    }
+
+    const initGIS = () => {
+      if (!window.google?.accounts?.id) return;
+
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        if (googleBtnContainerRef.current) {
+          googleBtnContainerRef.current.innerHTML = '';
+          window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+            type: 'standard',
+            theme: 'outline',
+            size: 'large',
+            text: 'continue_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+            width: 320,
+          });
+        }
+      } catch (err) {
+        console.error('Error initializing Google Identity Services:', err);
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGIS();
+    } else {
+      const scriptId = 'google-identity-services-script';
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          initGIS();
+        };
+        document.head.appendChild(script);
+      } else {
+        script.onload = () => {
+          initGIS();
+        };
+      }
+    }
+  }, [googleClientId]);
+
+  const handleCustomGoogleClick = () => {
+    if (!googleClientId) {
+      setError('Google Sign-In is not configured yet. Add VITE_GOOGLE_CLIENT_ID to enable login.');
+      return;
+    }
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    }
   };
 
   return (
@@ -96,19 +194,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
         </div>
 
         <div className="w-full rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.08)] p-8 md:p-10 flex flex-col items-center">
-          {isReturningUser && (
-            <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100/60 text-[10px] font-bold text-indigo-700 shadow-soft select-none animate-bounce">
-              <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
-              <span>Welcome Back</span>
-            </div>
-          )}
-
           <div className="text-center mb-6">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Sign in to LinkVM
             </h1>
             <p className="text-xs text-slate-500 mt-1.5 font-semibold">
-              Consolidate your links in 60 seconds
+              Continue with your Google account
             </p>
           </div>
 
@@ -119,141 +210,73 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate }) =
             </div>
           )}
 
-          <div className="w-full flex flex-col gap-2.5 mb-5">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => handleOAuth('google')}
-              className="w-full flex items-center justify-center gap-3 h-11 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-soft hover:shadow-medium transition-all cursor-pointer disabled:opacity-50"
-            >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-          </div>
-
-          <div className="relative flex items-center justify-center mb-5 w-full">
-            <div className="border-t border-slate-200/80 w-full" />
-            <span className="bg-white/95 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 absolute">
-              OR CONTINUE WITH EMAIL
-            </span>
-          </div>
-
-          <form onSubmit={handleSubmit} className="w-full space-y-3.5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-                  <Mail size={16} />
-                </div>
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@domain.com"
-                  className="w-full h-11 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-soft"
-                />
+          {!googleClientId ? (
+            <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs flex flex-col gap-2 mb-6">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                <span>Configuration Required</span>
               </div>
+              <p className="text-amber-700 leading-relaxed">
+                Google Sign-In is not configured yet. Add <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-[11px]">VITE_GOOGLE_CLIENT_ID</code> to enable login.
+              </p>
             </div>
+          ) : (
+            <div className="w-full flex flex-col items-center justify-center gap-3 my-4">
+              <div
+                ref={googleBtnContainerRef}
+                className="w-full flex justify-center min-h-[44px]"
+              />
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => handleNavigate('forgot-password')}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-bold cursor-pointer"
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative flex items-center">
-                <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-                  <Lock size={16} />
-                </div>
-                <input
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-soft"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-1 flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 font-bold">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
-                />
-                <span>Remember me on this browser</span>
-              </label>
-            </div>
-
-            <div className="pt-2">
               <button
-                type="submit"
+                type="button"
                 disabled={loading}
-                className="w-full h-11 rounded-xl bg-gradient-to-b from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 text-white font-bold text-xs shadow-medium hover:shadow-large transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 group disabled:opacity-50"
+                onClick={handleCustomGoogleClick}
+                className="w-full max-w-[320px] flex items-center justify-center gap-3 h-11 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-soft hover:shadow-medium transition-all cursor-pointer disabled:opacity-50"
               >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight
-                      size={16}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
-                  </>
-                )}
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+                <span>{loading ? 'Signing in…' : 'Continue with Google'}</span>
               </button>
             </div>
-          </form>
+          )}
 
-          <p className="text-center text-xs text-slate-500 mt-6 font-semibold">
-            Don&apos;t have an account?{' '}
-            <button
-              type="button"
-              onClick={() => handleNavigate('signup')}
-              className="text-indigo-600 hover:text-indigo-700 font-black cursor-pointer underline-offset-2 hover:underline"
-            >
-              Sign up free
-            </button>
-          </p>
+          <div className="w-full text-center mt-6 pt-4 border-t border-slate-100">
+            <p className="text-[11px] text-slate-500 font-medium">
+              By continuing, you agree to our{' '}
+              <button
+                type="button"
+                onClick={() => handleNavigate('terms')}
+                className="text-indigo-600 hover:text-indigo-700 font-bold underline underline-offset-2 cursor-pointer"
+              >
+                Terms of Service
+              </button>{' '}
+              and{' '}
+              <button
+                type="button"
+                onClick={() => handleNavigate('privacy')}
+                className="text-indigo-600 hover:text-indigo-700 font-bold underline underline-offset-2 cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              .
+            </p>
+          </div>
         </div>
 
         <div className="mt-8 text-center text-[10px] text-slate-400 font-bold flex flex-wrap justify-center gap-1">

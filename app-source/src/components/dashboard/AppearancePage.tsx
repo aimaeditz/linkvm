@@ -120,10 +120,7 @@ export const AppearancePage: React.FC<AppearancePageProps> = ({
     }
 
     try {
-      // 2. Simulated POST/PATCH endpoint delay to mock server roundtrip
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // 3. Update DB state
+      // Update DB state
       StorageService.updateTheme(currentTheme);
       setInitialSavedTheme(currentTheme);
       onThemeChange();

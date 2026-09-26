@@ -45,7 +45,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   const clickRate = totalViews > 0 ? `${((totalClicks / totalViews) * 100).toFixed(1)}%` : '0.0%';
 
   const siteUrl = getSiteUrl();
-  const cleanUsername = (user.username || 'google-creator').replace(/^[@$\-+!~]/, '').trim();
+  const cleanUsername = (user.username || 'user').replace(/^[@$\-+!~]/, '').trim();
   const fullPublicUrl = `https://linkvm.online/${cleanUsername}`;
   const displayPublicUrl = `linkvm.online/${cleanUsername}`;
 

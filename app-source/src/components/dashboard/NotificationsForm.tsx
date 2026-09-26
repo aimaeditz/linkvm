@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../../types';
-import { Lock } from 'lucide-react';
+import { Lock, Info } from 'lucide-react';
 
 interface NotificationsFormProps {
   user: User;
@@ -16,6 +16,12 @@ export const NotificationsForm: React.FC<NotificationsFormProps> = ({ user, form
       <div className="pb-4 border-b border-slate-100">
         <h3 className="text-sm font-bold text-slate-900">Email Notification Preferences</h3>
         <p className="text-xs text-slate-500">Choose when you want to receive alerts at {user.email}</p>
+        <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+            Email delivery will be enabled once the backend is connected. Your preferences are saved now and will apply automatically.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -29,7 +35,7 @@ export const NotificationsForm: React.FC<NotificationsFormProps> = ({ user, form
               </span>
             </div>
             <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-              Alerts regarding password updates, account login from new locations, and security events. Required for account safety.
+              Alerts regarding account login from new locations and security events. Required for account safety.
             </p>
           </div>
           <input

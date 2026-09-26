@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { User, SocialLinks, LinkItem, ThemeConfig } from '../../types';
 import { ProfileForm } from './ProfileForm';
 import { SocialLinksForm } from './SocialLinksForm';
-import { PasswordForm } from './PasswordForm';
 import { SessionsPanel } from './SessionsPanel';
 import { NotificationsForm } from './NotificationsForm';
 import { PrivacyForm } from './PrivacyForm';
@@ -288,12 +287,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             Settings &amp; Account
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Manage your credentials, alternative URLs, social channels, and data privacy.
+            Manage your account, alternative URLs, social channels, and data privacy.
           </p>
         </div>
       </div>
 
-      {/* Tabs list (6 tabs) */}
+      {/* Tabs list */}
       <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-2xl overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -349,7 +348,43 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         )}
         {activeTab === 'account' && (
           <div className="space-y-6">
-            <PasswordForm />
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-4 shadow-xs">
+              <div className="pb-4 border-b border-slate-100">
+                <h3 className="text-sm font-bold text-slate-900">Connected Account</h3>
+                <p className="text-xs text-slate-500">Your LinkVM account is securely authenticated with Google</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center">
+                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{user.email}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Google Authentication Active</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                  Connected
+                </span>
+              </div>
+            </div>
             <SessionsPanel />
           </div>
         )}

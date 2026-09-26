@@ -109,7 +109,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               <p className="text-xs text-slate-500">Display name, unique username handle, bio, and avatar link</p>
             </div>
             <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
-              linkvm.online/{formData.username || user.username || 'google-creator'}
+              linkvm.online/{formData.username || user.username || 'user'}
             </div>
           </div>
 

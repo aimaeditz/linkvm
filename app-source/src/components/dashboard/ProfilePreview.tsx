@@ -20,7 +20,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
   socials,
 }) => {
   const visibleLinks = links.filter((l) => l.visible);
-  const cleanUsername = (user.username || 'google-creator').replace(/^[@$\-+!~]/, '').trim();
+  const cleanUsername = (user.username || 'user').replace(/^[@$\-+!~]/, '').trim();
   const displayUrl = `linkvm.online/${cleanUsername}`;
 
   const getButtonShapeClass = (shape: string) => {
@@ -243,7 +243,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
           {/* Footer Brand Credit */}
           <div className="pt-5 pb-2 text-center relative z-10 space-y-1">
             <div className="text-[10px] font-mono font-semibold opacity-75" style={{ color: theme.textColor }}>
-              linkvm.online/{user.username || 'google-creator'}
+              linkvm.online/{user.username || 'user'}
             </div>
             <div className="inline-flex items-center gap-1 text-[10px] font-bold opacity-60" style={{ color: theme.textColor }}>
               <span>Made with LinkVM</span>

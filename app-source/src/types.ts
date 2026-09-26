@@ -19,6 +19,10 @@ export interface User {
   titleStyle?: 'text' | 'logo';
   titleFont?: string;
   altTitleFont?: boolean;
+  googleSub?: string;
+  googleEmail?: string;
+  googleName?: string;
+  googlePicture?: string;
   notifications?: {
     emailOnView?: boolean;
     emailOnClick?: boolean;

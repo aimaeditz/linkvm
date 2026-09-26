@@ -17,8 +17,6 @@ import { Footer } from './components/landing/Footer';
 // Auth Components
 import { LoginPage } from './components/auth/LoginPage';
 import { SignupPage } from './components/auth/SignupPage';
-import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
-import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 
 // Dashboard Components
 import { Sidebar } from './components/dashboard/Sidebar';
@@ -142,8 +140,6 @@ export default function App() {
     const RESERVED_PATHS = new Set([
       'login',
       'signup',
-      'forgot-password',
-      'reset-password',
       'dashboard',
       'why-free',
       'about',
@@ -218,16 +214,6 @@ export default function App() {
       } else {
         setRoute('signup');
       }
-      return;
-    }
-
-    if (firstSegment === 'forgot-password') {
-      setRoute('forgot-password');
-      return;
-    }
-
-    if (firstSegment === 'reset-password') {
-      setRoute('reset-password');
       return;
     }
 
@@ -330,8 +316,6 @@ export default function App() {
     if (targetRoute === 'landing') newPath = '/';
     else if (targetRoute === 'login') newPath = '/login';
     else if (targetRoute === 'signup') newPath = '/signup';
-    else if (targetRoute === 'forgot-password') newPath = '/forgot-password';
-    else if (targetRoute === 'reset-password') newPath = '/reset-password';
     else if (targetRoute === 'about') newPath = '/about';
     else if (targetRoute === 'privacy') newPath = '/privacy';
     else if (targetRoute === 'terms') newPath = '/terms';
@@ -371,9 +355,9 @@ export default function App() {
   // Safe fallback user object if in preview/dashboard
   const activeUser: User = currentUser || {
     id: 'guest',
-    name: 'Google Creator',
-    username: 'google-creator',
-    email: 'google-creator@linkvm.online',
+    name: 'LinkVM User',
+    username: 'user',
+    email: 'user@linkvm.online',
     bio: 'Consolidate all your links into one place.',
     avatarUrl: '',
     headerLayout: 'classic',
@@ -391,14 +375,6 @@ export default function App() {
 
   if (route === 'signup') {
     return <SignupPage onSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
-  }
-
-  if (route === 'forgot-password') {
-    return <ForgotPasswordPage onNavigate={handleNavigate} />;
-  }
-
-  if (route === 'reset-password') {
-    return <ResetPasswordPage onNavigate={handleNavigate} />;
   }
 
   if (route === 'about') {
