@@ -117,15 +117,13 @@ export default function App() {
     const hostParts = hostname.split('.');
     let targetUsername = '';
 
-    const isDevOrStandard =
-      hostname.includes('localhost') ||
-      hostname.includes('127.0.0.1') ||
-      hostname.includes('web.app') ||
-      hostname.includes('github.dev') ||
-      hostname.includes('vercel.app') ||
-      hostname.includes('gitpod.io');
+    const isLinkvmSubdomain =
+      hostname.endsWith('.linkvm.online') &&
+      hostParts.length >= 3 &&
+      hostParts[0] !== 'www' &&
+      hostParts[0] !== 'linkvm';
 
-    if (!isDevOrStandard && hostParts.length > 2 && hostParts[0] !== 'www' && hostParts[0] !== 'linkvm') {
+    if (isLinkvmSubdomain) {
       targetUsername = hostParts[0];
     }
 

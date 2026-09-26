@@ -61,6 +61,7 @@ function preserveRootBuildPlugin(): Plugin {
         '.github',
         '.gitignore',
         'README.md',
+        'PROJECT_LOG.md',
         '.nojekyll',
         'LICENSE',
         'app-source',

@@ -54,6 +54,7 @@ The local development server launches at `http://localhost:3000/linkvm/` (or `ht
    ```
    *(Or from root: `npm run build`)*
    This rebuilds and writes the fresh `index.html`, `assets/`, `404.html`, `manifest.json`, `icon.svg` directly to the repository root.
+   - **Bundle Guard**: After every `npm run build:root`, only one JS + one CSS bundle should exist in `/assets`. If more appear, `--emptyOutDir` is not working and must be fixed.
 
 2. From the repository root, commit and push to `main`:
    ```bash
