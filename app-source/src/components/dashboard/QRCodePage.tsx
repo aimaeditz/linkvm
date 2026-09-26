@@ -13,12 +13,12 @@ interface QRCodePageProps {
 }
 
 export const QRCodePage: React.FC<QRCodePageProps> = ({ user }) => {
-  const cleanUsername = (user?.username || 'user').replace(/^[@$\-+!~]/, '').trim();
+  const cleanUsername = (user?.username || '').replace(/^[@$\-+!~]/, '').trim();
   const customQrUrl = `https://linkvm.online/${cleanUsername}`;
   const customQrDisplay = `linkvm.online/${cleanUsername}`;
   
   // Referral config using short token-based format linkvm.online/r/{code}
-  const referralCode = user?.referralCode || generateReferralCode(cleanUsername, user?.id || 'guest');
+  const referralCode = user?.referralCode || (cleanUsername ? generateReferralCode(cleanUsername, user?.id || '') : '');
   const referralUrl = `https://linkvm.online/r/${referralCode}`;
   const inviteCount = user?.invitesAccepted ?? user?.invitesSent ?? 0;
 

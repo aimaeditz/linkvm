@@ -20,8 +20,8 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
   socials,
 }) => {
   const visibleLinks = links.filter((l) => l.visible);
-  const cleanUsername = (user.username || 'user').replace(/^[@$\-+!~]/, '').trim();
-  const displayUrl = `linkvm.online/${cleanUsername}`;
+  const cleanUsername = (user.username || '').replace(/^[@$\-+!~]/, '').trim();
+  const displayUrl = cleanUsername ? `linkvm.online/${cleanUsername}` : 'linkvm.online';
 
   const getButtonShapeClass = (shape: string) => {
     switch (shape) {
@@ -108,7 +108,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
         <span>Live Phone Preview</span>
       </div>
 
-      {/* Phone Mockup Frame */}
+      {/* Phone Device Frame */}
       <div className="w-[300px] sm:w-[320px] h-[580px] sm:h-[600px] bg-slate-950 rounded-[44px] p-3 shadow-2xl ring-1 ring-slate-900/40 relative flex flex-col shrink-0">
         {/* Phone Notch */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-slate-900 rounded-full z-30 flex items-center justify-center">
@@ -243,7 +243,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
           {/* Footer Brand Credit */}
           <div className="pt-5 pb-2 text-center relative z-10 space-y-1">
             <div className="text-[10px] font-mono font-semibold opacity-75" style={{ color: theme.textColor }}>
-              linkvm.online/{user.username || 'user'}
+              {displayUrl}
             </div>
             <div className="inline-flex items-center gap-1 text-[10px] font-bold opacity-60" style={{ color: theme.textColor }}>
               <span>Made with LinkVM</span>

@@ -10,11 +10,12 @@
     "app-source"
   ],
   "scripts": {
-    "dev": "cd app-source && npm run dev",
-    "build": "cd app-source && npm run build:root",
-    "install:app": "cd app-source && npm install",
-    "preview": "cd app-source && npm run preview",
-    "lint": "cd app-source && npm run lint"
+    "dev": "npm --prefix app-source run dev",
+    "build": "npm --prefix app-source run build:root",
+    "build:root": "npm --prefix app-source run build:root",
+    "install:app": "npm --prefix app-source install",
+    "preview": "npm --prefix app-source run preview",
+    "lint": "npm --prefix app-source run lint"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

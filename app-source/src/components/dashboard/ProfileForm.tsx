@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { User, LinkItem, ThemeConfig } from '../../types';
-import { StorageService } from '../../lib/storage';
+import { StorageService, checkUsernameAvailableInFirestore } from '../../lib/storage';
 import { validateUsername, isReservedUsername } from '../../lib/reserved-usernames';
 import { getSiteUrl } from '../../lib/site';
 import { CheckCircle2, AlertCircle, Loader2, AlertTriangle, Link as LinkIcon } from 'lucide-react';
@@ -72,8 +72,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     setCheckStatus('checking');
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    debounceTimer.current = setTimeout(() => {
-      const isAvailable = StorageService.checkUsernameAvailability(clean, user.id);
+    debounceTimer.current = setTimeout(async () => {
+      const isAvailable = await checkUsernameAvailableInFirestore(clean);
       if (isAvailable) {
         setCheckStatus('available');
         setValidationError('');
@@ -109,7 +109,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               <p className="text-xs text-slate-500">Display name, unique username handle, bio, and avatar link</p>
             </div>
             <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
-              linkvm.online/{formData.username || user.username || 'user'}
+              linkvm.online/{formData.username || user.username || ''}
             </div>
           </div>
 

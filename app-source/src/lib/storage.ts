@@ -128,7 +128,7 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
       displayName: firebaseUser.displayName || existing.displayName || '',
       photoURL: firebaseUser.photoURL || existing.photoURL || '',
       avatarUrl: existing.avatarUrl || firebaseUser.photoURL || '',
-      name: existing.name || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator'),
+      name: existing.name || firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : ''),
       googleEmail: firebaseUser.email || '',
       googleName: firebaseUser.displayName || '',
       googlePicture: firebaseUser.photoURL || '',
@@ -154,7 +154,7 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
     }
   } else {
     // New user registration
-    const rawLocal = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'creator';
+    const rawLocal = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'user';
     let candidateUsername = slugify(rawLocal);
     if (!candidateUsername || candidateUsername.length < 3) candidateUsername = `user_${uid.slice(0, 5)}`;
 
@@ -169,7 +169,7 @@ export async function syncUserFromFirebase(firebaseUser: FirebaseUser): Promise<
     userData = {
       id: uid,
       email: firebaseUser.email || '',
-      name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Creator'),
+      name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : ''),
       displayName: firebaseUser.displayName || '',
       photoURL: firebaseUser.photoURL || '',
       avatarUrl: firebaseUser.photoURL || '',
@@ -326,7 +326,7 @@ export class AuthService {
   }
 
   static generateUniqueUsername(email: string): string {
-    const localPart = email.split('@')[0] || 'creator';
+    const localPart = email.split('@')[0] || 'user';
     let base = slugify(localPart).slice(0, 16);
     if (base.length < 3) base = `user_${base}`;
     return base;

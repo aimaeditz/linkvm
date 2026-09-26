@@ -29,8 +29,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       'Getting started on LinkVM is straightforward and requires no credit cards or complex setup.'
     ],
     steps: [
-      '1. Create your account with your email and secure password.',
-      '2. Claim your unique username (e.g., linkvm.online/@yourname) or alternative share pattern.',
+      '1. Sign in with your Google account.',
+      '2. Claim your unique username (e.g., linkvm.online/{username}).',
       '3. Add your first link, customize your profile bio and avatar, and publish your page instantly.'
     ]
   },
@@ -103,7 +103,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     iconName: 'Settings',
     subtitle: 'Configure your profile, security, and preferences.',
     content: [
-      'The Settings dashboard is organized into logical tabs: Profile (name, username, bio, avatar), Social Links, Account (email and password updates), Notifications, Privacy controls, and the Danger Zone for account deletion.'
+      'The Settings dashboard is organized into logical tabs: Profile (name, username, bio, avatar), Social Links, Notifications, Privacy controls, and the Danger Zone for account deletion.'
     ]
   },
   {

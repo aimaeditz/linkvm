@@ -40,12 +40,13 @@ export const SocialLinksForm: React.FC<SocialLinksFormProps> = ({
   theme,
   links,
 }) => {
-  const activeUser = user || StorageService.getCurrentUser() || {
-    id: 'guest',
-    name: 'Creator',
-    username: 'creator',
-    email: 'creator@linkvm.online',
-    bio: 'Consolidate all your links into one place.',
+  const currentUser = user || StorageService.getCurrentUser();
+  const activeUser = currentUser || {
+    id: '',
+    name: '',
+    username: '',
+    email: '',
+    bio: '',
     avatarUrl: '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

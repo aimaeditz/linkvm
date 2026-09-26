@@ -44,9 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showPatternPopover, setShowPatternPopover] = useState(false);
 
   const siteUrl = getSiteUrl();
-  const cleanUsername = (user.username || 'user').replace(/^[@$\-+!~]/, '').trim();
-  const fullPublicUrl = `https://linkvm.online/${cleanUsername}`;
-  const displayUrl = `linkvm.online/${cleanUsername}`;
+  const cleanUsername = (user.username || '').replace(/^[@$\-+!~]/, '').trim();
+  const fullPublicUrl = cleanUsername ? `https://linkvm.online/${cleanUsername}` : 'https://linkvm.online';
+  const displayUrl = cleanUsername ? `linkvm.online/${cleanUsername}` : 'linkvm.online';
   const sharePattern = user.sharePattern || '{username}';
 
   const navItems = [
