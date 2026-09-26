@@ -61,6 +61,32 @@ let cachedAnalytics: AnalyticsEvent[] = [];
 type StateChangeListener = () => void;
 const listeners: Set<StateChangeListener> = new Set();
 
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type SaveStatusListener = (status: SaveStatus) => void;
+const saveStatusListeners: Set<SaveStatusListener> = new Set();
+let currentSaveStatus: SaveStatus = 'saved';
+let saveStatusTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function subscribeSaveStatus(listener: SaveStatusListener): () => void {
+  saveStatusListeners.add(listener);
+  listener(currentSaveStatus);
+  return () => {
+    saveStatusListeners.delete(listener);
+  };
+}
+
+export function notifySaveStatus(status: SaveStatus) {
+  currentSaveStatus = status;
+  saveStatusListeners.forEach((l) => l(status));
+  if (status === 'saved') {
+    if (saveStatusTimer) clearTimeout(saveStatusTimer);
+    saveStatusTimer = setTimeout(() => {
+      currentSaveStatus = 'idle';
+      saveStatusListeners.forEach((l) => l('idle'));
+    }, 2500);
+  }
+}
+
 export function subscribeToStore(listener: StateChangeListener): () => void {
   listeners.add(listener);
   return () => {
@@ -128,7 +154,7 @@ if (isFirebaseConfigured) {
 }
 
 export async function checkUsernameAvailableInFirestore(rawUsername: string): Promise<boolean> {
-  const clean = slugify(rawUsername);
+  const clean = slugify(rawUsername).toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (!clean || clean.length < 3 || clean.length > 30) return false;
   const val = validateUsername(clean);
   if (!val.valid) return false;
@@ -139,7 +165,8 @@ export async function checkUsernameAvailableInFirestore(rawUsername: string): Pr
     const snap = await getDoc(unameDocRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (auth.currentUser && data.uid === auth.currentUser.uid) {
+      const currentUid = auth.currentUser?.uid || cachedCurrentUser?.id;
+      if (currentUid && data.uid === currentUid) {
         return true;
       }
       return false;
@@ -433,33 +460,45 @@ export class AuthService {
 
     const now = new Date().toISOString();
 
-    if (partial.username && cachedCurrentUser && partial.username !== cachedCurrentUser.username) {
-      const cleanUsername = slugify(partial.username);
+    if (partial.username && cachedCurrentUser && partial.username.toLowerCase() !== cachedCurrentUser.username.toLowerCase()) {
+      const cleanUsername = slugify(partial.username).toLowerCase().replace(/[^a-z0-9_-]/g, '');
       const val = validateUsername(cleanUsername);
       if (!val.valid) {
+        notifySaveStatus('error');
         return { error: val.error || 'Invalid username.' };
       }
 
       const isAvail = await checkUsernameAvailableInFirestore(cleanUsername);
       if (!isAvail) {
-        return { error: 'This username is already taken or reserved.' };
+        notifySaveStatus('error');
+        return { error: 'This username is already taken or was previously registered.' };
       }
 
+      notifySaveStatus('saving');
       try {
         await runTransaction(db, async (transaction) => {
-          const oldUnameRef = doc(db, 'usernames', cachedCurrentUser!.username);
+          const oldUname = cachedCurrentUser!.username.toLowerCase();
+          const oldUnameRef = doc(db, 'usernames', oldUname);
           const newUnameRef = doc(db, 'usernames', cleanUsername);
           const userRef = doc(db, 'users', uid);
 
-          transaction.delete(oldUnameRef);
-          transaction.set(newUnameRef, { uid, createdAt: now });
+          const existingNewSnap = await transaction.get(newUnameRef);
+          if (existingNewSnap.exists() && existingNewSnap.data().uid !== uid) {
+            throw new Error('This username is already taken or was previously registered.');
+          }
+
+          // Retain old username record marked as retired so it cannot be claimed by another user
+          transaction.set(oldUnameRef, { uid, retired: true, updatedAt: now }, { merge: true });
+          transaction.set(newUnameRef, { uid, createdAt: now, active: true });
           transaction.update(userRef, {
             ...partial,
             username: cleanUsername,
             updatedAt: now,
           });
         });
+        notifySaveStatus('saved');
       } catch (err) {
+        notifySaveStatus('error');
         handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
         return { error: 'Failed to update username. Please try again.' };
       }
@@ -489,9 +528,12 @@ export class AuthService {
       updatedAt: now,
     };
 
+    notifySaveStatus('saving');
     try {
       await setDoc(doc(db, 'users', uid), updatedUser, { merge: true });
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
       return { error: 'Failed to save profile changes.' };
     }
@@ -509,11 +551,22 @@ export class AuthService {
       throw new Error('Not authenticated');
     }
 
+    notifySaveStatus('saving');
     try {
       const batch = writeBatch(db);
 
       if (cachedCurrentUser?.username) {
-        batch.delete(doc(db, 'usernames', cachedCurrentUser.username));
+        // Mark username as tombstoned/deleted to preserve history & prevent reuse
+        const unameClean = cachedCurrentUser.username.toLowerCase();
+        batch.set(
+          doc(db, 'usernames', unameClean),
+          {
+            uid,
+            deleted: true,
+            deletedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
       }
 
       const linksSnap = await getDocs(collection(db, 'users', uid, 'links'));
@@ -528,8 +581,16 @@ export class AuthService {
       batch.delete(doc(db, 'users', uid));
 
       await batch.commit();
-      await deleteUser(current);
+
+      try {
+        await deleteUser(current);
+      } catch (authErr) {
+        console.warn('Firebase auth deleteUser notice:', authErr);
+        await signOut(auth);
+      }
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.DELETE, `users/${uid}`);
       throw err;
     }
@@ -696,10 +757,13 @@ export class StorageService {
 
     cachedLinks = [...cachedLinks, newLink];
     notifyListeners();
+    notifySaveStatus('saving');
 
     try {
       await setDoc(doc(db, 'users', uid, 'links', newId), newLink);
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
       return { error: 'Failed to save link to database' };
     }
@@ -726,10 +790,14 @@ export class StorageService {
     };
     cachedLinks = [...cachedLinks, newLink];
     notifyListeners();
+    notifySaveStatus('saving');
 
-    setDoc(doc(db, 'users', uid, 'links', newId), newLink).catch((err) => {
-      handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
-    });
+    setDoc(doc(db, 'users', uid, 'links', newId), newLink)
+      .then(() => notifySaveStatus('saved'))
+      .catch((err) => {
+        notifySaveStatus('error');
+        handleFirestoreError(err, OperationType.CREATE, `users/${uid}/links/${newId}`);
+      });
 
     return { link: newLink };
   }
@@ -746,10 +814,13 @@ export class StorageService {
     const updated = { ...target, ...partial, updatedAt: now };
     cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
     notifyListeners();
+    notifySaveStatus('saving');
 
     try {
       await setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true });
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
     }
 
@@ -765,10 +836,14 @@ export class StorageService {
     const updated = { ...target, ...partial, updatedAt: new Date().toISOString() };
     cachedLinks = cachedLinks.map((l) => (l.id === id ? updated : l));
     notifyListeners();
+    notifySaveStatus('saving');
 
-    setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true }).catch((err) => {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
-    });
+    setDoc(doc(db, 'users', uid, 'links', id), updated, { merge: true })
+      .then(() => notifySaveStatus('saved'))
+      .catch((err) => {
+        notifySaveStatus('error');
+        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/links/${id}`);
+      });
 
     return updated;
   }
@@ -783,10 +858,13 @@ export class StorageService {
       position: index,
     }));
     notifyListeners();
+    notifySaveStatus('saving');
 
     try {
       await deleteDoc(doc(db, 'users', uid, 'links', id));
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
       return false;
     }
@@ -804,10 +882,14 @@ export class StorageService {
       position: index,
     }));
     notifyListeners();
+    notifySaveStatus('saving');
 
-    deleteDoc(doc(db, 'users', uid, 'links', id)).catch((err) => {
-      handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
-    });
+    deleteDoc(doc(db, 'users', uid, 'links', id))
+      .then(() => notifySaveStatus('saved'))
+      .catch((err) => {
+        notifySaveStatus('error');
+        handleFirestoreError(err, OperationType.DELETE, `users/${uid}/links/${id}`);
+      });
 
     return true;
   }
@@ -830,6 +912,7 @@ export class StorageService {
 
     cachedLinks = reordered;
     notifyListeners();
+    notifySaveStatus('saving');
 
     try {
       const batch = writeBatch(db);
@@ -837,7 +920,9 @@ export class StorageService {
         batch.set(doc(db, 'users', uid, 'links', item.id), item);
       });
       await batch.commit();
+      notifySaveStatus('saved');
     } catch (err) {
+      notifySaveStatus('error');
       handleFirestoreError(err, OperationType.WRITE, `users/${uid}/links`);
     }
 
@@ -900,13 +985,18 @@ export class StorageService {
 
     cachedTheme = updated;
     notifyListeners();
+    notifySaveStatus('saving');
 
     if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'theme', 'default'), updated);
+        notifySaveStatus('saved');
       } catch (err) {
+        notifySaveStatus('error');
         handleFirestoreError(err, OperationType.WRITE, `users/${uid}/theme/default`);
       }
+    } else {
+      notifySaveStatus('saved');
     }
 
     return updated;
@@ -927,11 +1017,17 @@ export class StorageService {
 
     cachedTheme = updated;
     notifyListeners();
+    notifySaveStatus('saving');
 
     if (uid) {
-      setDoc(doc(db, 'users', uid, 'theme', 'default'), updated).catch((err) => {
-        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/theme/default`);
-      });
+      setDoc(doc(db, 'users', uid, 'theme', 'default'), updated)
+        .then(() => notifySaveStatus('saved'))
+        .catch((err) => {
+          notifySaveStatus('error');
+          handleFirestoreError(err, OperationType.WRITE, `users/${uid}/theme/default`);
+        });
+    } else {
+      notifySaveStatus('saved');
     }
 
     return updated;
@@ -986,13 +1082,18 @@ export class StorageService {
 
     cachedSocials = updated;
     notifyListeners();
+    notifySaveStatus('saving');
 
     if (uid) {
       try {
         await setDoc(doc(db, 'users', uid, 'socials', 'default'), updated);
+        notifySaveStatus('saved');
       } catch (err) {
+        notifySaveStatus('error');
         handleFirestoreError(err, OperationType.WRITE, `users/${uid}/socials/default`);
       }
+    } else {
+      notifySaveStatus('saved');
     }
 
     return updated;
@@ -1011,11 +1112,17 @@ export class StorageService {
 
     cachedSocials = updated;
     notifyListeners();
+    notifySaveStatus('saving');
 
     if (uid) {
-      setDoc(doc(db, 'users', uid, 'socials', 'default'), updated).catch((err) => {
-        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/socials/default`);
-      });
+      setDoc(doc(db, 'users', uid, 'socials', 'default'), updated)
+        .then(() => notifySaveStatus('saved'))
+        .catch((err) => {
+          notifySaveStatus('error');
+          handleFirestoreError(err, OperationType.WRITE, `users/${uid}/socials/default`);
+        });
+    } else {
+      notifySaveStatus('saved');
     }
 
     return updated;
@@ -1218,5 +1325,9 @@ export class StorageService {
   static async deleteAccount(): Promise<boolean> {
     await AuthService.deleteAccount();
     return true;
+  }
+
+  static subscribeSaveStatus(listener: (status: SaveStatus) => void): () => void {
+    return subscribeSaveStatus(listener);
   }
 }

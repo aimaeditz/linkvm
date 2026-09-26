@@ -4,6 +4,7 @@ import { LinkItem, ThemeConfig } from '../../types';
 import { linkSchema } from '../../lib/validators';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { StorageService } from '../../lib/storage';
+import { detectPlatformIcon } from '../../lib/icons';
 
 interface LinkFormModalProps {
   isOpen: boolean;
@@ -76,10 +77,17 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
       processedUrl = `https://${processedUrl}`;
     }
 
+    // Auto-detect platform icon if icon is default/generic or matching
+    let finalIcon = icon;
+    const detected = detectPlatformIcon(processedUrl);
+    if (detected && (!finalIcon || finalIcon.toLowerCase() === 'globe' || finalIcon.toLowerCase() === 'link')) {
+      finalIcon = detected;
+    }
+
     const result = linkSchema.safeParse({
       title,
       url: processedUrl,
-      icon,
+      icon: finalIcon,
       visible,
       openInNew,
       highlighted,
@@ -219,9 +227,16 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
                 <label className="text-xs font-bold text-slate-700">Destination URL</label>
                 <input
                   type="text"
-                  placeholder="https://example.com/your-content"
+                  placeholder="https://example.com/your-content (e.g. tiktok.com/@username, youtube.com/@channel)"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => {
+                    const newUrl = e.target.value;
+                    setUrl(newUrl);
+                    const detected = detectPlatformIcon(newUrl);
+                    if (detected) {
+                      setIcon(detected);
+                    }
+                  }}
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:border-indigo-500 bg-white font-mono text-xs"
                 />

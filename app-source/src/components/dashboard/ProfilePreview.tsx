@@ -218,7 +218,7 @@ export const ProfilePreview: React.FC<ProfilePreviewProps> = ({
                 </div>
               ) : (
                 visibleLinks.map((link) => {
-                  const IconComponent = getIconComponent(link.icon);
+                  const IconComponent = getIconComponent(link.icon, link.url);
 
                   return (
                     <div

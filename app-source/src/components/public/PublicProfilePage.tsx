@@ -280,7 +280,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
               </div>
             ) : (
               visibleLinks.map((link) => {
-                const IconComponent = getIconComponent(link.icon);
+                const IconComponent = getIconComponent(link.icon, link.url);
 
                 return (
                   <a

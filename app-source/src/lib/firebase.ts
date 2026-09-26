@@ -8,35 +8,16 @@ import {
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const defaultAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
 const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
 const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID;
 const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
-/**
- * Resolves the Firebase Auth domain dynamically at runtime:
- * - On linkvm.online (or www.linkvm.online), returns "linkvm.online"
- *   so OAuth popups (Google/Facebook) show "linkvm.online" as the requesting site.
- * - Anywhere else (localhost, preview environments, vercel.app), falls back to
- *   the default authDomain from environment variables.
- */
-function resolveAuthDomain(defaultDomain?: string): string {
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const hostname = window.location.hostname.toLowerCase();
-    if (hostname === 'linkvm.online' || hostname === 'www.linkvm.online') {
-      return 'linkvm.online';
-    }
-  }
-  return defaultDomain || 'unconfigured-auth-domain';
-}
-
-export const authDomain = resolveAuthDomain(defaultAuthDomain);
-
 const missingVars: string[] = [];
 if (!apiKey) missingVars.push('VITE_FIREBASE_API_KEY');
-if (!defaultAuthDomain && authDomain === 'unconfigured-auth-domain') missingVars.push('VITE_FIREBASE_AUTH_DOMAIN');
+if (!authDomain) missingVars.push('VITE_FIREBASE_AUTH_DOMAIN');
 if (!projectId) missingVars.push('VITE_FIREBASE_PROJECT_ID');
 if (!storageBucket) missingVars.push('VITE_FIREBASE_STORAGE_BUCKET');
 if (!messagingSenderId) missingVars.push('VITE_FIREBASE_MESSAGING_SENDER_ID');
@@ -58,7 +39,7 @@ if (!isFirebaseConfigured) {
 // Config strictly populated from real environment variables
 const firebaseConfig = {
   apiKey: apiKey || 'unconfigured-api-key',
-  authDomain,
+  authDomain: authDomain || 'unconfigured-auth-domain',
   projectId: projectId || 'unconfigured-project-id',
   storageBucket: storageBucket || 'unconfigured-storage-bucket',
   messagingSenderId: messagingSenderId || 'unconfigured-sender-id',

@@ -31,7 +31,7 @@ export const LinkCard: React.FC<LinkCardProps> = ({
   dragHandleProps,
 }) => {
   const [copied, setCopied] = useState(false);
-  const IconComponent = getIconComponent(link.icon);
+  const IconComponent = getIconComponent(link.icon, link.url);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
