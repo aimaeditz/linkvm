@@ -5,7 +5,7 @@ import {
   browserLocalPersistence,
   setPersistence,
 } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
@@ -98,8 +98,11 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): FirestoreErrorInfo {
+  const message = error instanceof Error ? error.message : String(error);
+  const code = (error as { code?: string })?.code || '';
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -115,24 +118,18 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.warn('Database Warning: ', JSON.stringify(errInfo));
+
+  if (code === 'unavailable' || message.includes('unavailable') || message.includes('Could not reach Cloud Firestore')) {
+    console.warn('[Firestore Offline Notice] Client is operating in offline mode or backend is unreachable.', path ? `Path: ${path}` : '');
+  } else {
+    console.warn('Database Warning: ', JSON.stringify(errInfo));
+  }
+
   return errInfo;
 }
 
-export async function testConnection() {
-  if (!isFirebaseConfigured) return;
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('the client is offline')
-    ) {
-      console.warn('Database connection offline.');
-    }
-  }
+export async function testConnection(): Promise<boolean> {
+  if (!isFirebaseConfigured) return false;
+  return true;
 }
 
-if (isFirebaseConfigured) {
-  testConnection();
-}

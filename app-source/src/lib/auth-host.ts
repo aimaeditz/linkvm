@@ -3,10 +3,39 @@ export const ALLOWED_AUTH_HOSTS: readonly string[] = [
   'www.linkvm.online',
   'localhost',
   '127.0.0.1',
+  '::1',
 ];
 
-export function isAuthHostSupported(_hostname: string = typeof window !== 'undefined' ? window.location.hostname : ''): boolean {
-  return true;
+export function isAuthHostSupported(
+  hostname: string = typeof window !== 'undefined' ? window.location.hostname : ''
+): boolean {
+  if (!hostname) return true;
+
+  const host = hostname.split(':')[0].trim().toLowerCase();
+
+  // Allow canonical domain and localhost
+  if (ALLOWED_AUTH_HOSTS.includes(host)) {
+    return true;
+  }
+
+  // Allow subdomains of linkvm.online
+  if (host.endsWith('.linkvm.online')) {
+    return true;
+  }
+
+  // Allow Google AI Studio and Cloud preview domains
+  if (
+    host.endsWith('.usercontent.goog') ||
+    host.endsWith('.scf.usercontent.goog') ||
+    host === 'aistudio.google.com' ||
+    host.endsWith('.aistudio.google.com') ||
+    host.endsWith('.google.com') ||
+    host.endsWith('.run.app')
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export const UNAUTHORIZED_DOMAIN_NOTICE =
