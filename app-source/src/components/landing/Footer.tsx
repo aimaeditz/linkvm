@@ -114,11 +114,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div className="hidden md:block w-px self-stretch bg-slate-100" />
 
-          <div className="flex flex-col gap-3 shrink-0">
+          <div className="flex flex-col items-center text-center gap-3 shrink-0">
             <h4 className="text-[11px] uppercase tracking-[0.15em] text-slate-400 font-medium">
               Connect
             </h4>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
               <a
                 href="https://www.instagram.com/its_abid29/"
                 target="_blank"
@@ -126,7 +126,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 aria-label="Instagram"
                 className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <Instagram size={17} />
+                <Instagram size={14} />
               </a>
 
               <a
@@ -136,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 aria-label="YouTube"
                 className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <Youtube size={17} />
+                <Youtube size={14} />
               </a>
 
               <a
@@ -146,7 +146,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 aria-label="TikTok"
                 className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
                 </svg>
               </a>
@@ -158,7 +158,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 aria-label="WhatsApp"
                 className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                 </svg>
               </a>
@@ -170,7 +170,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 aria-label="Blog"
                 className="text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <Globe size={17} />
+                <Globe size={14} />
               </a>
             </div>
           </div>
