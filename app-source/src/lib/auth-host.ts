@@ -1,18 +1,14 @@
 export const ALLOWED_AUTH_HOSTS: readonly string[] = [
   'linkvm.online',
   'www.linkvm.online',
-  'aimaeditz.github.io',
-  'linkvm.vercel.app',
   'localhost',
   '127.0.0.1',
-  'linkvme.firebaseapp.com',
-  'linkvme.web.app',
 ];
 
 export function isAuthHostSupported(hostname: string = typeof window !== 'undefined' ? window.location.hostname : ''): boolean {
   if (!hostname) return true;
   const host = hostname.toLowerCase();
-  return ALLOWED_AUTH_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`) || host.endsWith('run.app'));
+  return ALLOWED_AUTH_HOSTS.some((allowed) => host === allowed || host.startsWith('localhost:'));
 }
 
 export const UNAUTHORIZED_PREVIEW_NOTICE =

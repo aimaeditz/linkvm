@@ -3,7 +3,12 @@ import { Logo } from '../shared/Logo';
 import { AuthService } from '../../lib/storage';
 import { AuthBackdrop } from './AuthBackdrop';
 import { FloatingChips } from './FloatingChips';
-import { AlertCircle, CheckCircle2, Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, Loader2, Mail, ArrowLeft } from 'lucide-react';
+import {
+  isAuthHostSupported,
+  UNAUTHORIZED_PREVIEW_NOTICE,
+  getFriendlyAuthErrorMessage,
+} from '../../lib/auth-host';
 
 export interface ForgotPasswordPageProps {
   onNavigate?: (route: string) => void;
@@ -17,6 +22,8 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const isHostAllowed = isAuthHostSupported();
+
   const handleNavigate = (route: string) => {
     if (onNavigate) {
       onNavigate(route);
@@ -27,6 +34,10 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isHostAllowed) {
+      setError(UNAUTHORIZED_PREVIEW_NOTICE);
+      return;
+    }
     setError('');
     setSuccess(false);
 
@@ -87,6 +98,13 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
             </p>
           </div>
 
+          {!isHostAllowed && (
+            <div className="w-full mb-5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/70 text-amber-800 text-xs font-semibold flex items-start gap-2.5">
+              <Info size={16} className="shrink-0 text-amber-600 mt-0.5" />
+              <span>{UNAUTHORIZED_PREVIEW_NOTICE}</span>
+            </div>
+          )}
+
           {error && (
             <div className="w-full mb-5 p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold flex items-start gap-2">
               <AlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5" />
@@ -140,7 +158,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isHostAllowed}
                 className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (

@@ -1,6 +1,6 @@
 {
-  "name": "LinkVM",
-  "description": "Consolidate your social media, portfolio, and digital content into one lightning-fast, beautifully designed page.",
+  "name": "LinkVM — All Your Links. One Premium Page.",
+  "description": "LinkVM — All Your Links. One Premium Page.",
   "request_frame_permissions": [],
   "capabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

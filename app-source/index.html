@@ -7,6 +7,13 @@
     <meta name="description" content="LinkVM is a 100% free forever link-in-bio platform. One premium page for all your links, with premium themes, real-time analytics, QR codes, and a public profile. No subscriptions, no paywalls." />
     <link rel="canonical" href="https://linkvm.online/" />
     
+    <script>
+      if (window.location.hostname === 'aimaeditz.github.io') {
+        var targetPath = window.location.pathname.replace(/^\/linkvm/, '');
+        window.location.replace('https://linkvm.online' + (targetPath || '/') + window.location.search + window.location.hash);
+      }
+    </script>
+
     <!-- Favicons & Icon Links -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />

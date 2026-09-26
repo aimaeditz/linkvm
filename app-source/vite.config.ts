@@ -3,31 +3,10 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { defineConfig, Plugin, loadEnv } from 'vite';
+import { defineConfig, Plugin } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-function getComputedBase(mode: string): string {
-  if (process.env.AI_STUDIO === 'true' || process.env.AI_STUDIO) {
-    return '/';
-  }
-  if (process.env.VITE_BASE_PATH) {
-    return process.env.VITE_BASE_PATH;
-  }
-  const env = loadEnv(mode, __dirname, '');
-  const siteUrl = process.env.VITE_SITE_URL || env.VITE_SITE_URL;
-  if (siteUrl) {
-    try {
-      const parsed = new URL(siteUrl);
-      const pathname = parsed.pathname;
-      return pathname.endsWith('/') ? pathname : `${pathname}/`;
-    } catch {
-      // Fallback below
-    }
-  }
-  return '/';
-}
 
 function preserveRootBuildPlugin(): Plugin {
   return {
@@ -128,46 +107,28 @@ function preserveRootBuildPlugin(): Plugin {
         fs.writeFileSync(nojekyllPath, '');
       }
     },
-    configureServer(server) {
-      // Gracefully handle dev navigation to root by routing to configured base
-      const base = getComputedBase(process.env.NODE_ENV || 'development');
-      if (base !== '/') {
-        server.middlewares.use((req, res, next) => {
-          if (req.url === '/' || req.url === '') {
-            res.writeHead(302, { Location: base });
-            res.end();
-            return;
-          }
-          next();
-        });
-      }
-    },
   };
 }
 
-export default defineConfig(({ mode }) => {
-  const base = getComputedBase(mode);
-
-  return {
-    base,
-    plugins: [react(), tailwindcss(), preserveRootBuildPlugin()],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
-      },
+export default defineConfig({
+  base: '/',
+  plugins: [react(), tailwindcss(), preserveRootBuildPlugin()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
-    build: {
-      outDir: 'dist',
-      emptyOutDir: true,
-      assetsDir: 'assets',
-      sourcemap: false,
-    },
-    server: {
-      port: 3000,
-      host: '0.0.0.0',
-      allowedHosts: true,
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
-    },
-  };
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    assetsDir: 'assets',
+    sourcemap: false,
+  },
+  server: {
+    port: 3000,
+    host: '0.0.0.0',
+    allowedHosts: true,
+    hmr: process.env.DISABLE_HMR !== 'true',
+    watch: process.env.DISABLE_HMR === 'true' ? null : {},
+  },
 });

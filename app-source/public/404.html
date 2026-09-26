@@ -5,14 +5,16 @@
     <title>LinkVM</title>
     <script>
       (function () {
-        var isCustomDomain = window.location.hostname === 'linkvm.online' || window.location.hostname.endsWith('.linkvm.online') || !window.location.pathname.startsWith('/linkvm/');
-        var pathSegmentsToKeep = isCustomDomain ? 0 : 1;
+        if (window.location.hostname === 'aimaeditz.github.io') {
+          var targetPath = window.location.pathname.replace(/^\/linkvm/, '');
+          window.location.replace('https://linkvm.online' + (targetPath || '/') + window.location.search + window.location.hash);
+          return;
+        }
         var l = window.location;
         l.replace(
           l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-          (pathSegmentsToKeep ? l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') : '') +
           '/?/' +
-          l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/')
+          l.pathname.slice(1)
             .replace(/&/g, '~and~') +
           (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
           l.hash

@@ -40,6 +40,10 @@ export const SignupPage: React.FC<SignupPageProps> = ({
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isHostAllowed) {
+      setError(UNAUTHORIZED_PREVIEW_NOTICE);
+      return;
+    }
     setError('');
 
     const trimmedName = name.trim();
@@ -274,7 +278,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !isHostAllowed}
               className="w-full h-11 mt-2 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loadingEmail ? (
