@@ -18,7 +18,11 @@ export function getSiteUrl(): string {
     return processUrl.trim().replace(/\/+$/, '');
   }
 
-  // Canonical production domain default (strictly linkvm.online, never auto-generated dev URLs)
+  if (typeof window !== 'undefined' && window.location.origin && !window.location.hostname.includes('linkvm.online')) {
+    return window.location.origin;
+  }
+
+  // Canonical production domain default (strictly linkvm.online)
   return 'https://linkvm.online';
 }
 

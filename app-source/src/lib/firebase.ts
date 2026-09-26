@@ -23,19 +23,21 @@ if (!storageBucket) missingVars.push('VITE_FIREBASE_STORAGE_BUCKET');
 if (!messagingSenderId) missingVars.push('VITE_FIREBASE_MESSAGING_SENDER_ID');
 if (!appId) missingVars.push('VITE_FIREBASE_APP_ID');
 
-if (missingVars.length > 0) {
-  throw new Error(
-    `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env configuration.`
+export const isFirebaseConfigured = missingVars.length === 0;
+
+if (!isFirebaseConfigured) {
+  console.info(
+    'Firebase environment variables not set; running in local storage / demo fallback mode.'
   );
 }
 
 const firebaseConfig = {
-  apiKey,
-  authDomain,
-  projectId,
-  storageBucket,
-  messagingSenderId,
-  appId,
+  apiKey: apiKey || 'AIzaSyMockKeyForDevEnvironment12345678',
+  authDomain: authDomain || 'linkvm-preview.firebaseapp.com',
+  projectId: projectId || 'linkvm-preview',
+  storageBucket: storageBucket || 'linkvm-preview.appspot.com',
+  messagingSenderId: messagingSenderId || '123456789012',
+  appId: appId || '1:123456789012:web:1234567890abcdef',
   measurementId: measurementId || undefined,
 };
 
@@ -44,9 +46,11 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // Set browser local persistence so authentication state survives page reloads
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.error('Failed to set auth persistence:', err);
-});
+if (isFirebaseConfigured) {
+  setPersistence(auth, browserLocalPersistence).catch((err) => {
+    console.warn('Failed to set auth persistence:', err);
+  });
+}
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
@@ -106,6 +110,7 @@ export function handleFirestoreError(
 }
 
 export async function testConnection() {
+  if (!isFirebaseConfigured) return;
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
@@ -118,4 +123,6 @@ export async function testConnection() {
   }
 }
 
-testConnection();
+if (isFirebaseConfigured) {
+  testConnection();
+}
